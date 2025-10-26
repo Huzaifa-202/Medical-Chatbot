@@ -43,12 +43,11 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
-# --- Step 1: Retrieve from Azure Search using VECTOR SEARCH (OPTIMIZED) ---
-def get_search_results(query_text: str, top_k: int = 5):
+# --- Step 1: Retrieve from Azure Search using VECTOR SEARCH ---
+def get_search_results(query_text: str, top_k: int = 3):
     """
-    OPTIMIZED VECTOR SEARCH with better accuracy
-    - Fetch more results (top 5) for better coverage
-    - Azure AI Search handles embedding generation automatically
+    Performs VECTOR SEARCH using Azure AI Search integrated vectorization
+    Azure AI Search handles embedding generation automatically
     """
     start_time = time.perf_counter()
 
@@ -73,47 +72,33 @@ def get_search_results(query_text: str, top_k: int = 5):
     end_time = time.perf_counter()
     latency_ms = (end_time - start_time) * 1000
 
-    # Minimal processing - no sanitization during collection
     docs = []
     for r in results:
         docs.append({
-            "title": r.get("title", "N/A"),
-            "chunk": r.get("chunk", ""),
+            "title": sanitize_text(r.get("title", "N/A")),
+            "chunk": sanitize_text(r.get("chunk", "")),
             "score": r.get("@search.score", 0)
         })
     return docs, latency_ms
 
-# --- Step 2: Build an enhanced prompt for better accuracy ---
-def build_enhanced_prompt(query: str, docs):
-    """
-    Enhanced prompt engineering for better accuracy
-    - Uses top 3-4 most relevant docs
-    - Includes title context for better understanding
-    - Clear instructions to reduce hallucination
-    """
-    # Use top 3-4 docs based on scores
-    top_docs = docs[:4] if len(docs) >= 4 else docs
-
-    context_lines = []
-    for i, d in enumerate(top_docs, 1):
-        # Include title for better context
-        title = d['title']
-        # Use full chunks (not truncated) for better accuracy
-        chunk = d['chunk'][:600] if len(d['chunk']) > 600 else d['chunk']  # Increased from 400
-        context_lines.append(f"[Document {i}: {title}]\n{chunk}")
-
+# --- Step 2: Build a safe prompt ---
+def build_safe_prompt(query: str, docs):
+    docs = docs[:3]  # limit to top 3 docs
+    context_lines = [f"{i+1}. {d['title']}: {d['chunk']}" for i, d in enumerate(docs)]
     context = "\n\n".join(context_lines)
-
-    # Improved prompt for accuracy
     prompt = (
-        f"Using ONLY the information from these documents, answer the question.\n"
-        f"If the answer isn't in the documents, say 'I don't have enough information to answer this.'\n\n"
-        f"Documents:\n{context}\n\n"
-        f"Question: {query}\n\n"
-        f"Answer:"
-    )
+    "You are an AI assistant designed to answer questions ONLY using the provided context below. "
+    "If the answer is not explicitly present in the context, reply strictly with: "
+    "\"The information is not available in the provided documents.\" "
+    "Do NOT include any external knowledge, opinions, or promotional language. "
+    "Avoid discussing sensitive or restricted topics (e.g., religion, politics, personal data). "
+    "Always keep the answer concise, factual, and neutral.\n\n"
+    f"Context:\n{context}\n\n"
+    f"User Query: {query}\n\n"
+    "Answer:"
+)
 
-    return prompt, top_docs
+    return prompt, docs
 
 # --- Step 3: Generate GPT response with STREAMING ---
 def get_gpt_response_stream(prompt: str):
@@ -166,8 +151,8 @@ def run_rag_pipeline(query: str):
     docs, search_latency = get_search_results(query)
     print(f"🔍 Retrieved {len(docs)} docs via VECTOR SEARCH in {search_latency:.2f} ms")
 
-    # Step 2: Build enhanced prompt for better accuracy
-    prompt, docs_used = build_enhanced_prompt(query, docs)
+    # Step 2: Build safe prompt
+    prompt, docs_used = build_safe_prompt(query, docs)
 
     # Step 3: Get GPT response with streaming
     answer, gpt_latency, first_token_latency = get_gpt_response_stream(prompt)
@@ -181,9 +166,11 @@ def run_rag_pipeline(query: str):
     print(f"├── GPT Total: {gpt_latency:.2f} ms")
     print(f"└── Total End-to-End: {total_latency:.2f} ms")
 
-    # Show retrieved context (compact)
-    if docs_used:
-        print(f"\n📄 Retrieved {len(docs_used)} documents (scores: {[f'{d["score"]:.3f}' for d in docs_used[:3]]})")
+    # --- Step 5: Show retrieved context ---
+    print("\n📄 Context Retrieved from Documents:")
+    for i, doc in enumerate(docs_used):
+        print(f"{i+1}. Title: {doc['title']}")
+        print(f"   Content: {doc['chunk'][:500]}{'...' if len(doc['chunk'])>500 else ''}\n")  # truncate long text
 
     return answer
 
