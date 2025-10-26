@@ -186,6 +186,130 @@ if __name__ == "__main__":
         run_rag_pipeline(user_query)
 
 
-ZURE_OPENAI_API_KEY=9rB8MrAYJikswZ71wJLcysp7oitBDzHCIkZIU4S5PwBWlZJJSCNBJQQJ99BIACHYHv6XJ3w3AAAAACOGL8rH
-AZURE_OPENAI_ENDPOINT=https://ai-alikhuzema9041ai836005646697.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT_NAME= gpt-4o-mini
+
+Deployment info
+Name
+gpt-realtime
+Provisioning state
+Succeeded
+Deployment type
+Global Standard
+Created on
+2025-10-26T21:46:42.1709263Z
+Created by
+be298efa-c53d-4ca1-86c0-4f198f87fc54
+Modified on
+Oct 27, 2025 2:46 AM
+Modified by
+be298efa-c53d-4ca1-86c0-4f198f87fc54
+Version upgrade policy
+Once a new default version is available
+Rate limit (Tokens per minute)
+100,000
+Rate limit (Requests per minute)
+30
+Model name
+gpt-realtime
+Model version
+2025-08-28
+Life cycle status
+GenerallyAvailable
+Date created
+Aug 28, 2025 5:00 AM
+Date updated
+Aug 28, 2025 5:00 AM
+Model retirement date
+Sep 1, 2026 5:00 AM
+Endpoint
+Target URI
+https://alik-mfuzlgj7-swedencentral.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-realtime
+
+Authentication type
+Key
+Key
+••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+
+
+Monitoring & safety
+Content filter
+DefaultV2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The GPT-4o-mini-realtime-preview model introduces a smaller, lower cost model to power realtime speech applications. Like GPT-4o-realtime-preview, GPT-4o-mini-realtime-preview provides a richer and more engaging user experience, at a fraction of the cost.
+
+The introduction of GPT-4o-mini-realtime-preview opens numerous possibilities for businesses in various sectors:
+
+Enhanced customer service: By integrating audio inputs, GPT-4o-mini-realtime-preview enables more dynamic and comprehensive customer support interactions.
+
+Content innovation: Use GPT-4o-mini-realtime-preview's generative capabilities to create engaging and diverse audio content, catering to a broad range of consumer preferences.
+
+Real-time translation: Leverage GPT-4o-mini-realtime-preview's capability to provide accurate and immediate translations, facilitating seamless communication across different languages.
+
+Model Versions
+2024-12-17: Introducing our new multimodal AI model, which now supports both text and audio modalities. As this is a preview version, it is designed for testing and feedback purposes and is not yet optimized for production traffic.
+
+Limitations
+Currently, the GPT-4o-mini-realtime-preview model focuses on text and audio and does not support existing GPT-4o features such as image modality and structured outputs. For many tasks, the generally available GPT-4o-mini models may still be more suitable.
+
+IMPORTANT: At this time, GPT-4o-mini-realtime-preview usage limits are suitable for test and development. To prevent abuse and preserve service integrity, rate limits will be adjusted as needed.
+
+
+
+Deployment info
+Name
+gpt-4o-mini-realtime-preview
+Provisioning state
+Succeeded
+Deployment type
+Global Standard
+Created on
+2025-10-26T21:48:24.2803749Z
+Created by
+be298efa-c53d-4ca1-86c0-4f198f87fc54
+Modified on
+Oct 27, 2025 2:48 AM
+Modified by
+be298efa-c53d-4ca1-86c0-4f198f87fc54
+Version upgrade policy
+Once a new default version is available
+Rate limit (Tokens per minute)
+1,000
+Rate limit (Requests per minute)
+6
+Model name
+gpt-4o-mini-realtime-preview
+Model version
+2024-12-17
+Life cycle status
+Preview
+Date created
+Dec 17, 2024 5:00 AM
+Date updated
+Dec 17, 2024 5:00 AM
+Endpoint
+Target URI
+https://ai-alikhuzema9041ai836005646697.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-4o-mini-realtime-preview
+
+Authentication type
+Key
+Key
+••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+
+
+Monitoring & safety
+Content filter
+DefaultV
