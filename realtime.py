@@ -63,6 +63,9 @@ class PreSalesVoiceBot:
         self.response_start_time = None
         self.audio_playback_start_time = None
 
+        # CLIENT-SIDE INTERRUPTION: Flag to immediately stop audio playback when user speaks
+        self.user_is_speaking = False
+
     def get_presales_system_prompt(self, language="en"):
         """Generate pre-sales optimized system prompt in detected language"""
         prompts = {
@@ -74,8 +77,9 @@ class PreSalesVoiceBot:
 5. Be conversational, empathetic, and solution-focused
 6. Ask qualifying questions to understand budget, timeline, decision-makers
 
-Keep responses concise (2-3 sentences) for natural conversation flow.
-ALWAYS respond in the SAME language the customer is speaking (English, Urdu, Arabic, etc.).""",
+Keep responses concise but COMPLETE (2-4 sentences). Finish your thoughts.
+ALWAYS respond in the SAME language the customer is speaking (English, Urdu, Arabic, etc.).
+DO NOT stop mid-sentence. Complete your response.""",
 
             "ur": """Aap hamari company ke liye ek expert pre-sales consultant hain. Aapka role hai:
 1. Customer ki zarooriyat aur problems ko samajhna
@@ -85,18 +89,18 @@ ALWAYS respond in the SAME language the customer is speaking (English, Urdu, Ara
 5. Baat cheet mein hamdardana aur hal par mabni hona
 6. Budget, timeline, aur decision-makers ko samajhne ke liye sawalat poochna
 
-Qudrati baat cheet ki rawani ke liye mukhtasar jawabat dein (2-3 jumlay).
-Agar customer English mein baat kare toh English mein jawab dein.""",
+Mukhtasar magar MUKAMMAL jawabat dein (2-4 jumlay). Apni baat puri karein.
+Hamesha customer ki zuban mein jawab dein. Beech mein na rukein.""",
 
             "es": """Eres un consultor experto en preventas. Tu rol es:
 1. Comprender las necesidades y puntos de dolor del cliente
 2. Presentar beneficios relevantes del producto/servicio
 3. Manejar objeciones profesionalmente
-4. Guiar la conversaci�n hacia oportunidades calificadas
-5. Ser conversacional, emp�tico y enfocado en soluciones
+4. Guiar la conversación hacia oportunidades calificadas
+5. Ser conversacional, empático y enfocado en soluciones
 
-Mant�n respuestas concisas (2-3 oraciones) para un flujo natural.
-Siempre responde en el MISMO idioma que habla el cliente.""",
+Mantén respuestas concisas pero COMPLETAS (2-4 oraciones). Termina tus pensamientos.
+Siempre responde en el MISMO idioma que habla el cliente. NO pares a mitad de frase.""",
 
             "ar": """أنت مستشار مبيعات خبير لشركتنا. دورك هو:
 1. فهم احتياجات العميل ونقاط الألم
@@ -106,8 +110,8 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
 5. كن محاوراً متعاطفاً ومركزاً على الحلول
 6. اطرح أسئلة مؤهلة لفهم الميزانية والجدول الزمني وصناع القرار
 
-حافظ على إجابات موجزة (2-3 جمل) للتدفق الطبيعي للمحادثة.
-رد دائماً بنفس اللغة التي يتحدث بها العميل."""
+احتفظ بإجابات موجزة ولكن كاملة (2-4 جمل). أنهِ أفكارك.
+رد دائماً بنفس اللغة التي يتحدث بها العميل. لا تتوقف في منتصف الجملة."""
         }
 
         return prompts.get(language, prompts["en"])
@@ -174,13 +178,14 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
                     "model": "whisper-1"
                 },
                 "turn_detection": {
-                    "type": "server_vad",  # Voice Activity Detection for interruption
-                    "threshold": 0.5,
-                    "prefix_padding_ms": 300,
-                    "silence_duration_ms": 500
+                    "type": "server_vad",  # Voice Activity Detection - ENABLES INTERRUPTION
+                    "threshold": 0.4,  # Lower = more sensitive = detects interruption faster
+                    "prefix_padding_ms": 200,  # Reduced padding for faster interruption
+                    "silence_duration_ms": 500,  # How long silence before considering speech done
+                    "create_response": True  # Auto-create response when user stops speaking
                 },
                 "temperature": 0.8,
-                "max_response_output_tokens": 150  # Keep responses concise
+                "max_response_output_tokens": 1000  # Allow complete responses without cutting off
                 # Note: voice_settings (speed) is not supported by Azure OpenAI Realtime API
             }
         }
@@ -190,17 +195,22 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
 
     async def detect_and_update_language(self, text, websocket):
         """
-        MULTILINGUAL: Detects language and switches to respond in user's language
-        Fast switching - responds in 2 consistent detections
+        MULTILINGUAL: Detects language accurately and switches to respond in user's language
+        Uses English keyword detection first to avoid false Urdu detection
         """
         try:
             # Skip very short text (not enough context)
             if len(text.split()) < 2:
                 return
 
-            # Detect language using langdetect
-            detected_lang = detect(text)
-            logger.info(f"🌍 Detected language: {detected_lang} for text: '{text}'")
+            # STEP 1: Check if it's clearly English using keywords FIRST
+            if self.is_english_content(text):
+                detected_lang = "en"
+                logger.info(f"🌍 Detected ENGLISH (keyword match): '{text}'")
+            else:
+                # STEP 2: Use langdetect for non-English languages
+                detected_lang = detect(text)
+                logger.info(f"🌍 Detected {detected_lang}: '{text}'")
 
             # Add to buffer for tracking
             self.language_detection_buffer.append(detected_lang)
@@ -220,22 +230,21 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
 
             mapped_lang = lang_map.get(detected_lang, "en")
 
-            # Switch if we have 2 consistent detections OR if it's clearly different
-            if len(self.language_detection_buffer) >= 2:
-                # If last 2 are the same, switch
-                if self.language_detection_buffer[-1] == self.language_detection_buffer[-2]:
-                    if mapped_lang != self.current_language:
-                        logger.info(f"🌍 LANGUAGE SWITCH: {self.current_language} → {mapped_lang}")
-                        self.current_language = mapped_lang
+            # Switch if we have consistent detection
+            if len(self.language_detection_buffer) >= 1:
+                # Switch immediately for clear language changes
+                if mapped_lang != self.current_language:
+                    logger.info(f"🌍 LANGUAGE SWITCH: {self.current_language} → {mapped_lang}")
+                    self.current_language = mapped_lang
 
-                        # Update session with new language prompt
-                        update_config = {
-                            "type": "session.update",
-                            "session": {
-                                "instructions": self.get_presales_system_prompt(mapped_lang)
-                            }
+                    # Update session with new language prompt
+                    update_config = {
+                        "type": "session.update",
+                        "session": {
+                            "instructions": self.get_presales_system_prompt(mapped_lang)
                         }
-                        await websocket.send(json.dumps(update_config))
+                    }
+                    await websocket.send(json.dumps(update_config))
 
         except Exception as e:
             logger.warning(f"⚠️ Language detection failed: {e}")
@@ -288,12 +297,13 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
         2. Bot's voice responses (TTS)
         """
         # Open speaker stream to play bot's audio responses
+        # Use larger buffer for smoother playback
         stream = self.audio.open(
             format=self.FORMAT,
             channels=self.CHANNELS,
             rate=self.RATE,
             output=True,  # Output = speaker playback
-            frames_per_buffer=self.CHUNK
+            frames_per_buffer=self.CHUNK * 2  # Double buffer size for smoother playback
         )
 
         try:
@@ -315,8 +325,12 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
 
                         # TTS STEP 2: Decode base64 audio to raw bytes
                         audio_data = base64.b64decode(audio_b64)
-                        # TTS STEP 3: Play audio through speakers immediately
-                        stream.write(audio_data)
+
+                        # ⚡ CLIENT-SIDE INTERRUPTION: Skip audio playback if user is speaking
+                        if not self.user_is_speaking:
+                            # TTS STEP 3: Play audio through speakers immediately
+                            stream.write(audio_data)
+                        # If user is speaking, discard this audio chunk (don't play it)
 
                 elif event_type == "response.audio_transcript.delta":
                     # Bot's response text (for logging/display)
@@ -354,12 +368,17 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
                     print()  # New line after bot response
                     transcript = data.get("transcript", "")
                     if transcript:
+                        # Log complete response
+                        logger.info(f"🤖 Bot (complete): {transcript}")
                         self.conversation_history.append({"role": "assistant", "content": transcript})
 
                         # Calculate end-to-end latency
                         if self.speech_start_time and self.audio_playback_start_time:
                             end_to_end = (self.audio_playback_start_time - self.speech_start_time) * 1000
                             logger.info(f"⏱️  📊 END-TO-END LATENCY: {end_to_end:.0f}ms")
+
+                        # Print separator for readability
+                        print("-" * 60)
 
                         # Reset timers for next interaction
                         self.speech_start_time = None
@@ -375,15 +394,51 @@ Siempre responde en el MISMO idioma que habla el cliente.""",
                     logger.error(f"API Error: {data.get('error')}")
 
                 elif event_type == "response.done":
-                    logger.info("Response completed")
+                    logger.info("✅ Response completed successfully")
+
+                elif event_type == "response.created":
+                    logger.info("🔄 Response generation started")
+
+                elif event_type == "response.output_item.added":
+                    logger.info("📝 Response output item added")
 
                 elif event_type == "input_audio_buffer.speech_started":
-                    # Track when user starts speaking
+                    # ⚡ CRITICAL: Set flag to IMMEDIATELY stop audio playback on client side
+                    self.user_is_speaking = True
+
+                    # Track when user starts speaking (for latency measurement)
                     self.speech_start_time = time.time()
-                    logger.info("🎤 User started speaking")
+                    logger.warning("🎤 ⚠️  USER INTERRUPTING - STOPPING BOT NOW!")
+
+                    # Send cancel command to stop server-side response generation
+                    try:
+                        cancel_message = {
+                            "type": "response.cancel"
+                        }
+                        await websocket.send(json.dumps(cancel_message))
+                        logger.info("✋ Sent cancel command to stop bot (server-side)")
+                    except Exception as e:
+                        logger.error(f"Failed to send cancel: {e}")
 
                 elif event_type == "input_audio_buffer.speech_stopped":
-                    logger.info("🛑 User stopped speaking")
+                    # ⚡ Reset flag to allow bot audio playback again
+                    self.user_is_speaking = False
+                    logger.info("🛑 User stopped speaking - bot can respond now")
+
+                elif event_type == "response.cancelled":
+                    # Response successfully cancelled - ensure audio is stopped
+                    self.user_is_speaking = False  # Reset for next response
+                    logger.warning("⚠️  ✋ Response CANCELLED - User interrupted!")
+                    print("\n[Response interrupted by user]\n")
+
+                elif event_type == "input_audio_buffer.cleared":
+                    logger.info("🔄 Audio buffer cleared")
+
+                elif event_type == "input_audio_buffer.committed":
+                    logger.info("✅ Audio buffer committed - ready to process")
+
+                elif event_type == "conversation.item.truncated":
+                    logger.warning("✂️  Conversation item truncated (interrupted)")
 
         except websockets.exceptions.ConnectionClosed:
             logger.info("Connection closed")
@@ -429,15 +484,16 @@ async def main():
     print("  🤖 Pre-Sales Voicebot - Multilingual Azure OpenAI Realtime API")
     print("=" * 75)
     print("  ✓ Ultra-low latency")
-    print("  ✓ Multilingual (responds in YOUR language)")
-    print("  ✓ Interruption handling")
+    print("  ✓ Multilingual (English ↔ Urdu ↔ Arabic ↔ Spanish)")
+    print("  ✓ CLIENT-SIDE INTERRUPTION (instant stop when you speak)")
     print("  ✓ Real-time latency measurements")
     print("  ✓ Shimmer voice")
     print("=" * 75)
     print(f"\n  📊 Model: {os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'Not configured')}")
     print(f"  🔗 Endpoint: {os.getenv('AZURE_OPENAI_ENDPOINT', 'Not configured')[:50]}...")
-    print("\n  🌍 Supported: English, Urdu, Arabic, Spanish")
-    print("  ⏱️  Latency Tracking: STT → Response → TTS → Total")
+    print("\n  🌍 Language Detection: English keywords checked FIRST")
+    print("  🎤 Interrupt: Just start speaking while bot talks")
+    print("  ⏱️  Latency: STT → Response → TTS → Total")
     print("\n  Press Ctrl+C to stop\n")
     print("=" * 75)
 
