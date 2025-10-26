@@ -43,11 +43,11 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
-# --- Step 1: Retrieve from Azure Search using VECTOR SEARCH ---
+# --- Step 1: Retrieve from Azure Search using VECTOR SEARCH (OPTIMIZED) ---
 def get_search_results(query_text: str, top_k: int = 3):
     """
-    Performs VECTOR SEARCH using Azure AI Search integrated vectorization
-    Azure AI Search handles embedding generation automatically
+    OPTIMIZED VECTOR SEARCH with minimal latency
+    - Azure AI Search handles embedding generation automatically
     """
     start_time = time.perf_counter()
 
@@ -72,39 +72,37 @@ def get_search_results(query_text: str, top_k: int = 3):
     end_time = time.perf_counter()
     latency_ms = (end_time - start_time) * 1000
 
+    # Minimal processing - no sanitization during collection
     docs = []
     for r in results:
         docs.append({
-            "title": sanitize_text(r.get("title", "N/A")),
-            "chunk": sanitize_text(r.get("chunk", "")),
-            "score": r.get("@search.score", 0)  # Vector similarity score
+            "title": r.get("title", "N/A"),
+            "chunk": r.get("chunk", ""),
+            "score": r.get("@search.score", 0)
         })
     return docs, latency_ms
 
-# --- Step 2: Build a safe prompt ---
-def build_safe_prompt(query: str, docs):
-    docs = docs[:3]  # limit to top 3 docs
-    context_lines = [f"{i+1}. {d['title']}: {d['chunk']}" for i, d in enumerate(docs)]
-    context = "\n\n".join(context_lines)
-    prompt = (
-    "You are an AI assistant designed to answer questions ONLY using the provided context below. "
-    "If the answer is not explicitly present in the context, reply strictly with: "
-    "\"The information is not available in the provided documents.\" "
-    "Do NOT include any external knowledge, opinions, or promotional language. "
-    "Avoid discussing sensitive or restricted topics (e.g., religion, politics, personal data). "
-    "Always keep the answer concise, factual, and neutral.\n\n"
-    f"Context:\n{context}\n\n"
-    f"User Query: {query}\n\n"
-    "Answer:"
-)
+# --- Step 2: Build a compact prompt (OPTIMIZED for low latency) ---
+def build_compact_prompt(query: str, docs):
+    # Limit context size - shorter prompt = faster processing
+    context_lines = []
+    for i, d in enumerate(docs[:3], 1):  # Use all 3 docs
+        # Truncate long chunks to 400 chars max
+        chunk = d['chunk'][:400] if len(d['chunk']) > 400 else d['chunk']
+        context_lines.append(f"{i}. {chunk}")
+
+    context = "\n".join(context_lines)
+
+    # Shorter, more efficient prompt
+    prompt = f"Answer concisely using only this context:\n{context}\n\nQ: {query}\nA:"
 
     return prompt, docs
 
-# --- Step 3: Generate GPT response with streaming (OPTIMIZED for low latency) ---
+# --- Step 3: Generate GPT response with STREAMING ---
 def get_gpt_response_stream(prompt: str):
     first_token_latency = 0
     final_answer = ""
-    total_start_time = time.time()
+    total_start_time = time.perf_counter()
 
     print("\n🤖 GPT Response (streaming):\n")
     try:
@@ -114,8 +112,8 @@ def get_gpt_response_stream(prompt: str):
                 {"role": "system", "content": "You're a concise and factual assistant."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=300,  # Reduced for faster response
-            temperature=0.3,  # Lower = faster, more deterministic
+            max_tokens=300,
+            temperature=0.3,
             stream=True
         )
 
@@ -123,52 +121,54 @@ def get_gpt_response_stream(prompt: str):
             delta = chunk.choices[0].delta
             if delta.content:
                 if first_token_latency == 0:
-                    first_token_latency = time.time() - total_start_time
-                    print(f"\n⏱️ Time to First Token: {first_token_latency:.2f} sec")
+                    first_token_latency = time.perf_counter() - total_start_time
                 print(delta.content, end="", flush=True)
                 final_answer += delta.content
 
-        total_time = time.time() - total_start_time
-        print(f"\n\n📊 GPT Latency Summary:")
-        print(f"├── First Token: {first_token_latency:.2f} sec")
-        print(f"└── End-to-End: {total_time:.2f} sec")
+        total_end_time = time.perf_counter()
+        total_latency_ms = (total_end_time - total_start_time) * 1000
 
-        return final_answer, total_time, first_token_latency
+        return final_answer, total_latency_ms, first_token_latency * 1000
 
     except Exception as e:
         err_str = str(e)
         if "content_filter" in err_str:
             print("\n⚠️ GPT Response was blocked by Azure content filter.")
-            print("Try rephrasing your query or removing sensitive content.")
         else:
             print(f"\n⚠️ GPT Error: {err_str}")
         return None, 0, 0
 
-# --- Step 4: Run RAG pipeline ---
+# --- Step 4: Run OPTIMIZED RAG pipeline ---
 def run_rag_pipeline(query: str):
+    overall_start = time.perf_counter()
+
     print(f"\n❓ Query: {query}")
     print("-" * 60)
 
+    # Step 1: Vector search
     docs, search_latency = get_search_results(query)
     print(f"🔍 Retrieved {len(docs)} docs via VECTOR SEARCH in {search_latency:.2f} ms")
 
-    prompt, docs_used = build_safe_prompt(query, docs)
-    answer, gpt_latency, first_chunk_latency = get_gpt_response_stream(prompt)
+    # Step 2: Build compact prompt
+    prompt, docs_used = build_compact_prompt(query, docs)
 
-    total_latency = search_latency + gpt_latency * 1000  # convert sec to ms
+    # Step 3: Get GPT response with streaming
+    answer, gpt_latency, first_token_latency = get_gpt_response_stream(prompt)
 
-    print("\n📊 Total Latency Summary:")
-    print(f"├── Azure Search: {search_latency:.2f} ms")
-    print(f"├── GPT Response (full): {gpt_latency*1000:.2f} ms")
-    if first_chunk_latency > 0:
-        print(f"├── GPT First Token: {first_chunk_latency*1000:.2f} ms")
-    print(f"└── End-to-End Total: {total_latency:.2f} ms")
+    overall_end = time.perf_counter()
+    total_latency = (overall_end - overall_start) * 1000
 
-    # --- Step 5: Show retrieved context ---
-    print("\n📄 Context Retrieved from Documents:")
-    for i, doc in enumerate(docs_used):
-        print(f"{i+1}. Title: {doc['title']}")
-        print(f"   Content: {doc['chunk'][:500]}{'...' if len(doc['chunk'])>500 else ''}\n")  # truncate long text
+    print("\n\n📊 Latency Breakdown:")
+    print(f"├── Vector Search: {search_latency:.2f} ms")
+    print(f"├── GPT First Token: {first_token_latency:.2f} ms")
+    print(f"├── GPT Total: {gpt_latency:.2f} ms")
+    print(f"└── Total End-to-End: {total_latency:.2f} ms")
+
+    # Show retrieved context (compact)
+    if docs_used:
+        print(f"\n📄 Retrieved {len(docs_used)} documents (scores: {[f'{d["score"]:.3f}' for d in docs_used[:3]]})")
+
+    return answer
 
 # --- Main Chat Loop ---
 if __name__ == "__main__":
