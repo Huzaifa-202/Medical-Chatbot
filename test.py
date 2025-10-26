@@ -184,3 +184,8 @@ if __name__ == "__main__":
             print("Exiting. Goodbye!")
             break
         run_rag_pipeline(user_query)
+
+
+ZURE_OPENAI_API_KEY=9rB8MrAYJikswZ71wJLcysp7oitBDzHCIkZIU4S5PwBWlZJJSCNBJQQJ99BIACHYHv6XJ3w3AAAAACOGL8rH
+AZURE_OPENAI_ENDPOINT=https://ai-alikhuzema9041ai836005646697.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_NAME= gpt-4o-mini
