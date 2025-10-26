@@ -34,6 +34,16 @@ os.environ["OPENAI_API_VERSION"] = "2023-03-15-preview"
 
 client = AzureOpenAI()  # no arguments
 
+# Azure Search Configuration
+AZURE_SEARCH_ENDPOINT=https://avatarsearching.search.windows.net
+AZURE_SEARCH_INDEX_NAME=semanticsearchindex
+AZURE_SEARCH_API_KEY=rMU3DKUA9wu1zv5v0XJPrGnYJ0qok8yjXn8F0f0mGEAzSeAZNGE6
+# OpenAI Configuration
+AZURE_OPENAI_API_KEY=9rB8MrAYJikswZ71wJLcysp7oitBDzHCIkZIU4S5PwBWlZJJSCNBJQQJ99BIACHYHv6XJ3w3AAAAACOGL8rH
+AZURE_OPENAI_ENDPOINT=https://ai-alikhuzema9041ai836005646697.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_NAME= gpt-4o-mini
+
+
 # --- Helper: sanitize text ---
 def sanitize_text(text: str) -> str:
     text = re.sub(r"http\S+", "", text)
