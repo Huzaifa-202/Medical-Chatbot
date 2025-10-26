@@ -183,3 +183,6 @@ db.save_local(DB_FAISS_PATH)
     "compressions": []
   }
 }
+
+
+If a subscriber terminates their FTTR plan early and also holds an active Nojoom Gold membership, how would each service handle penalties or downgrades?
