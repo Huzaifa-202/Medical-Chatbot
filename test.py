@@ -44,9 +44,10 @@ def sanitize_text(text: str) -> str:
     return text.strip()
 
 # --- Step 1: Retrieve from Azure Search using VECTOR SEARCH (OPTIMIZED) ---
-def get_search_results(query_text: str, top_k: int = 3):
+def get_search_results(query_text: str, top_k: int = 5):
     """
-    OPTIMIZED VECTOR SEARCH with minimal latency
+    OPTIMIZED VECTOR SEARCH with better accuracy
+    - Fetch more results (top 5) for better coverage
     - Azure AI Search handles embedding generation automatically
     """
     start_time = time.perf_counter()
@@ -82,21 +83,37 @@ def get_search_results(query_text: str, top_k: int = 3):
         })
     return docs, latency_ms
 
-# --- Step 2: Build a compact prompt (OPTIMIZED for low latency) ---
-def build_compact_prompt(query: str, docs):
-    # Limit context size - shorter prompt = faster processing
+# --- Step 2: Build an enhanced prompt for better accuracy ---
+def build_enhanced_prompt(query: str, docs):
+    """
+    Enhanced prompt engineering for better accuracy
+    - Uses top 3-4 most relevant docs
+    - Includes title context for better understanding
+    - Clear instructions to reduce hallucination
+    """
+    # Use top 3-4 docs based on scores
+    top_docs = docs[:4] if len(docs) >= 4 else docs
+
     context_lines = []
-    for i, d in enumerate(docs[:3], 1):  # Use all 3 docs
-        # Truncate long chunks to 400 chars max
-        chunk = d['chunk'][:400] if len(d['chunk']) > 400 else d['chunk']
-        context_lines.append(f"{i}. {chunk}")
+    for i, d in enumerate(top_docs, 1):
+        # Include title for better context
+        title = d['title']
+        # Use full chunks (not truncated) for better accuracy
+        chunk = d['chunk'][:600] if len(d['chunk']) > 600 else d['chunk']  # Increased from 400
+        context_lines.append(f"[Document {i}: {title}]\n{chunk}")
 
-    context = "\n".join(context_lines)
+    context = "\n\n".join(context_lines)
 
-    # Shorter, more efficient prompt
-    prompt = f"Answer concisely using only this context:\n{context}\n\nQ: {query}\nA:"
+    # Improved prompt for accuracy
+    prompt = (
+        f"Using ONLY the information from these documents, answer the question.\n"
+        f"If the answer isn't in the documents, say 'I don't have enough information to answer this.'\n\n"
+        f"Documents:\n{context}\n\n"
+        f"Question: {query}\n\n"
+        f"Answer:"
+    )
 
-    return prompt, docs
+    return prompt, top_docs
 
 # --- Step 3: Generate GPT response with STREAMING ---
 def get_gpt_response_stream(prompt: str):
@@ -149,8 +166,8 @@ def run_rag_pipeline(query: str):
     docs, search_latency = get_search_results(query)
     print(f"🔍 Retrieved {len(docs)} docs via VECTOR SEARCH in {search_latency:.2f} ms")
 
-    # Step 2: Build compact prompt
-    prompt, docs_used = build_compact_prompt(query, docs)
+    # Step 2: Build enhanced prompt for better accuracy
+    prompt, docs_used = build_enhanced_prompt(query, docs)
 
     # Step 3: Get GPT response with streaming
     answer, gpt_latency, first_token_latency = get_gpt_response_stream(prompt)
