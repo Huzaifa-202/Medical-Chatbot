@@ -1,4 +1,3 @@
-
 """
 Multilingual Pre-Sales Voicebot - Azure OpenAI Realtime API
 ============================================================
@@ -380,7 +379,8 @@ Directrices de respuesta:
                     "threshold": 0.5,      # Sensitivity (0.0-1.0)
                     "prefix_padding_ms": 300,    # Audio before speech starts
                     "silence_duration_ms": 700,  # Silence duration to end turn
-                    "create_response": False     # Manual trigger (wait for language detection)
+                    "create_response": False     # Manual trigger for language detection
+                    # Manual trigger adds 0ms latency (same language) or 20ms (language switch)
                 },
 
                 # Response generation settings
@@ -579,14 +579,18 @@ Directrices de respuesta:
                             "content": transcript
                         })
 
-                        # Detect and switch language if needed
+                        # Detect language
                         detected_lang = self.detect_language(transcript)
-                        await self.update_language(websocket, detected_lang)
 
-                        # Wait for session update to complete
-                        await asyncio.sleep(0.1)
+                        # Only update session if language CHANGED (optimization)
+                        language_changed = (detected_lang != self.current_language)
+                        if language_changed:
+                            await self.update_language(websocket, detected_lang)
+                            # Small delay ONLY when language switches (20ms vs 100ms)
+                            await asyncio.sleep(0.02)
+                        # If same language, no delay needed - trigger immediately!
 
-                        # NOW trigger response with correct language prompt
+                        # Trigger response with correct language prompt
                         response_trigger = {"type": "response.create"}
                         await websocket.send(json.dumps(response_trigger))
 
