@@ -284,7 +284,7 @@ IMPORTANTE:
     # WEBSOCKET CONNECTION & SESSION MANAGEMENT
     # ============================================================
 
-    async def connect_to_realtime_api(self) -> websockets.WebSocketClientProtocol:
+    async def connect_to_realtime_api(self):
         """
         Establish WebSocket connection to Azure OpenAI Realtime API
 
@@ -311,7 +311,7 @@ IMPORTANTE:
         logger.info(f"📍 Deployment: {self.deployment}")
 
         # Connect to WebSocket
-        websocket = await websockets.connect(url, extra_headers=headers)
+        websocket = await websockets.connect(url, additional_headers=headers)
         logger.info("✅ Connected successfully!")
 
         return websocket
@@ -357,7 +357,7 @@ IMPORTANTE:
                     "threshold": 0.5,      # Sensitivity (0.0-1.0)
                     "prefix_padding_ms": 300,    # Audio before speech starts
                     "silence_duration_ms": 700,  # Silence duration to end turn
-                    "create_response": True      # Auto-respond when user stops
+                    "create_response": False     # Manual response trigger (for language detection)
                 },
 
                 # Response generation settings
@@ -559,6 +559,10 @@ IMPORTANTE:
                         # Detect and switch language if needed
                         detected_lang = self.detect_language(transcript)
                         await self.update_language(websocket, detected_lang)
+
+                        # NOW trigger response (after language is set correctly)
+                        response_trigger = {"type": "response.create"}
+                        await websocket.send(json.dumps(response_trigger))
 
                 # ==========================================
                 # INTERRUPTION HANDLING
