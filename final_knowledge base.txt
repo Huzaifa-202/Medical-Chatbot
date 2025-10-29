@@ -602,25 +602,5 @@ if __name__ == "__main__":
     if sys.version_info < (3, 8):
         print(f"{Fore.RED}Python 3.8 or higher is required{Style.RESET_ALL}")
 
-# Azure OpenAI Configuration (Required)
-AZURE_OPENAI_API_KEY=9rB8MrAYJikswZ71wJLcysp7oitBDzHCIkZIU4S5PwBWlZJJSCNBJQQJ99BIACHYHv6XJ3w3AAAAACOGL8rH
-AZURE_OPENAI_ENDPOINT=https://ai-alikhuzema9041ai836005646697.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini-realtime-preview
 
-# Voice Settings
-VOICE=alloy
-
-# Feature Flags
-ENABLE_VAD=true
-ENABLE_KNOWLEDGE_BASE=true
-
-# Knowledge Base Settings
-SEARCH_TOP_K=3
-ENABLE_SEARCH_CACHE=true
-CACHE_TTL_SECONDS=300
-PRINT_RETRIEVED_DOCS=true
-        sys.exit(1)
-
-    # Run the voicebot
-    asyncio.run(main())
 
