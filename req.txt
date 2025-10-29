@@ -14,7 +14,7 @@ pyaudio>=0.2.13
 numpy>=1.24.0
 
 # Voice Activity Detection (optional but recommended)
-webrtcvad>=2.0.10
+#webrtcvad>=2.0.10
 
 # WebSocket
 websockets>=12.0
