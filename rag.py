@@ -181,4 +181,4 @@ if __name__ == "__main__":
             break
         run_rag_pipeline(user_query)
 
-
+https://claude.ai/oauth/authorize?code=true&client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&response_type=code&scope=org:create_api_key+user:profile+user:inference&code_challenge=ZAu9v4eiMfl4PsGWgNfqDmrRQ5QmjY_Llx_-8Mu0gQw&code_challenge_method=S256&state=vPLH5-SPVc73BnUbW6Hwz9cgzxeqN--5Z_vwFzc7CCA&redirect_uri=http://localhost:55298/callback
