@@ -1,0 +1,677 @@
+# -*- coding: utf-8 -*-
+"""
+Presales Voicebot with GPT-4o-mini Realtime API
+Features:
+- Real-time voice communication
+- Multilingual support (auto-detects and responds in same language)
+- Low-latency optimized
+- Interruption handling (bot stops when user speaks)
+- Comprehensive latency tracking
+"""
+import asyncio
+import base64
+import json
+import sys
+import pyaudio
+import numpy as np
+from typing import Optional
+from colorama import Fore, Style, init
+from openai import AsyncAzureOpenAI
+from config import config
+from latency_tracker import LatencyTracker
+from knowledge_base import knowledge_base
+
+# Try to import webrtcvad, but make it optional
+try:
+    import webrtcvad
+    VAD_AVAILABLE = True
+except ImportError:
+    VAD_AVAILABLE = False
+    print(f"{Fore.YELLOW}Warning: webrtcvad not available. Interruption detection will be disabled.{Fore.RESET}")
+
+init(autoreset=True)
+
+
+class RealtimeVoicebot:
+    """
+    Real-time voicebot with Azure OpenAI GPT-4o-mini Realtime API
+    """
+
+    def __init__(self):
+        self.config = config
+        self.latency_tracker = LatencyTracker()
+        self.knowledge_base = knowledge_base
+
+        # Audio setup
+        self.audio = pyaudio.PyAudio()
+        self.sample_rate = self.config.sample_rate
+        self.chunk_size = self.config.chunk_size
+
+        # Voice Activity Detection for interruption (optional)
+        self.vad = None
+        if VAD_AVAILABLE:
+            try:
+                self.vad = webrtcvad.Vad(2)  # Aggressiveness: 0-3 (2 is moderate)
+            except Exception as e:
+                print(f"{Fore.YELLOW}Warning: Could not initialize VAD: {e}{Style.RESET_ALL}")
+                self.vad = None
+
+        # State management
+        self.is_bot_speaking = False
+        self.should_interrupt = False
+        self.user_is_speaking = False
+        self.detected_language = "English"  # Track detected language
+
+        # Azure OpenAI client
+        self.client = None
+        self.websocket = None
+
+        # Knowledge base state
+        self.kb_enabled = False
+
+        # Response tracking
+        self.response_text_started = False
+
+        # System prompt for multilingual support - CRITICAL for language matching
+        self.system_prompt = """You are a presales assistant with access to a company knowledge base.
+
+⚠️ CRITICAL AUDIO LANGUAGE INSTRUCTION - FOLLOW EXACTLY:
+
+When user speaks, you will receive a transcript showing their language.
+You MUST generate your AUDIO RESPONSE in that EXACT SAME LANGUAGE.
+
+AUDIO OUTPUT RULES (NON-NEGOTIABLE):
+1. Look at the user's transcript language
+2. Generate your AUDIO response in THAT EXACT LANGUAGE
+3. If transcript is in English → speak English audio
+4. If transcript is in Urdu/اردو → speak Urdu/اردو audio
+5. If transcript is in Spanish → speak Spanish audio
+6. If transcript is in any other language → speak THAT language audio
+
+❌ NEVER default to English audio if user spoke another language
+❌ NEVER mix languages in audio output
+❌ Your audio voice MUST match the user's language
+
+EXAMPLES:
+User transcript: "Tell me about pricing" → You speak ENGLISH audio
+User transcript: "قیمتوں کے بارے میں بتائیں" → You speak URDU audio
+User transcript: "Dime sobre precios" → You speak SPANISH audio
+
+KNOWLEDGE BASE USAGE:
+- You will receive relevant context from the company knowledge base when available
+- Use this context to provide accurate, company-specific answers
+- If context is provided, prioritize it over general knowledge
+- If context is not relevant or missing, say so politely
+- Keep responses concise (2-3 sentences) but informative
+
+Your role: Answer questions about products and services using the knowledge base. Keep responses concise (2-3 sentences).
+
+🎯 PRIMARY RULE: Match user's language in your AUDIO response. No exceptions."""
+
+    async def initialize(self):
+        """Initialize the Azure OpenAI connection"""
+        print(f"{Fore.CYAN}Initializing Azure OpenAI Realtime API...{Style.RESET_ALL}")
+
+        # Validate configuration
+        if not self.config.validate():
+            print(f"{Fore.RED}Configuration validation failed. Please check your .env file{Style.RESET_ALL}")
+            return False
+
+        try:
+            # Initialize Azure OpenAI client
+            self.client = AsyncAzureOpenAI(
+                api_key=self.config.azure_openai_api_key,
+                api_version="2024-10-01-preview",
+                azure_endpoint=self.config.azure_openai_endpoint
+            )
+
+            print(f"{Fore.GREEN} Connected to Azure OpenAI{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}  Endpoint: {self.config.azure_openai_endpoint}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}  Deployment: {self.config.azure_openai_deployment}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}  Voice: {self.config.voice}{Style.RESET_ALL}")
+
+            # Initialize knowledge base if enabled
+            if self.config.enable_knowledge_base:
+                print(f"\n{Fore.CYAN}Initializing Knowledge Base...{Style.RESET_ALL}")
+                self.kb_enabled = self.knowledge_base.initialize()
+                if not self.kb_enabled:
+                    print(f"{Fore.YELLOW}Warning: Knowledge base initialization failed. Continuing without KB.{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}Knowledge base is disabled{Style.RESET_ALL}")
+
+            return True
+
+        except Exception as e:
+            print(f"{Fore.RED}Failed to initialize: {e}{Style.RESET_ALL}")
+            return False
+
+    async def search_and_inject_context(self, websocket, query: str):
+        """
+        Search knowledge base and inject context into conversation
+        """
+        if not self.kb_enabled:
+            return
+
+        try:
+            # Track search latency
+            self.latency_tracker.start_search()
+
+            # Perform async search
+            docs, search_latency_ms = await self.knowledge_base.search_async(query)
+
+            # End search tracking
+            self.latency_tracker.end_search()
+
+            if docs:
+                # Format context for the LLM
+                context = self.knowledge_base.format_context_for_prompt(docs)
+
+                print(f"{Fore.MAGENTA}  Knowledge Base: Found {len(docs)} relevant documents ({search_latency_ms:.1f}ms){Style.RESET_ALL}")
+
+                # Print retrieved documents (non-blocking) if enabled
+                if self.config.print_retrieved_docs:
+                    for i, doc in enumerate(docs, 1):
+                        title = doc.get('title', 'N/A')
+                        chunk = doc.get('chunk', '')
+                        score = doc.get('score', 0)
+                        # Print title and first 100 chars of content
+                        preview = chunk[:100] + '...' if len(chunk) > 100 else chunk
+                        print(f"{Fore.LIGHTBLACK_EX}    [{i}] {title} (score: {score:.2f})")
+                        print(f"{Fore.LIGHTBLACK_EX}        {preview}{Style.RESET_ALL}")
+
+                # Inject context as a system message
+                await websocket.send(json.dumps({
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "system",
+                        "content": [{
+                            "type": "input_text",
+                            "text": context
+                        }]
+                    }
+                }))
+            else:
+                print(f"{Fore.YELLOW}  Knowledge Base: No relevant documents found ({search_latency_ms:.1f}ms){Style.RESET_ALL}")
+
+        except Exception as e:
+            print(f"{Fore.RED}  Knowledge Base search error: {e}{Style.RESET_ALL}")
+            self.latency_tracker.end_search()
+
+    def detect_language_from_text(self, text: str) -> str:
+        """
+        Detect language from text using Unicode character ranges
+        """
+        if not text:
+            return "English"
+
+        # Check for Urdu/Arabic script
+        if any('\u0600' <= c <= '\u06FF' or '\u0750' <= c <= '\u077F' for c in text):
+            return "Urdu"
+
+        # Check for Hindi/Devanagari script
+        if any('\u0900' <= c <= '\u097F' for c in text):
+            return "Hindi"
+
+        # Check for Chinese characters
+        if any('\u4E00' <= c <= '\u9FFF' for c in text):
+            return "Chinese"
+
+        # Check for Japanese
+        if any('\u3040' <= c <= '\u309F' or '\u30A0' <= c <= '\u30FF' for c in text):
+            return "Japanese"
+
+        # Check for Korean
+        if any('\uAC00' <= c <= '\uD7AF' for c in text):
+            return "Korean"
+
+        # Check for Spanish-specific characters
+        if any(c in 'áéíóúñüÁÉÍÓÚÑÜ¿¡' for c in text):
+            return "Spanish"
+
+        # Check for French-specific characters
+        if any(c in 'àâäçèéêëîïôùûüÿœæÀÂÄÇÈÉÊËÎÏÔÙÛÜŸŒÆ' for c in text):
+            return "French"
+
+        # Default to English
+        return "English"
+
+    def detect_speech(self, audio_chunk: bytes) -> bool:
+        """
+        Detect if audio chunk contains speech using WebRTC VAD
+        Used for interruption detection
+        """
+        if self.vad is None:
+            return False
+
+        try:
+            # VAD expects 10, 20, or 30ms frames at 8/16/32/48kHz
+            # We're using 24kHz, so we need to downsample to 16kHz for VAD
+            audio_data = np.frombuffer(audio_chunk, dtype=np.int16)
+
+            # Simple downsampling from 24kHz to 16kHz
+            downsampled = audio_data[::3][:320]  # 320 samples = 20ms at 16kHz
+
+            if len(downsampled) == 320:
+                is_speech = self.vad.is_speech(downsampled.tobytes(), 16000)
+                return is_speech
+        except Exception as e:
+            # If VAD fails, return False (no speech detected)
+            pass
+
+        return False
+
+    async def audio_input_stream(self, websocket):
+        """
+        Capture audio from microphone and stream to API
+        Also handles interruption detection
+        """
+        stream = self.audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=self.sample_rate,
+            input=True,
+            frames_per_buffer=self.chunk_size
+        )
+
+        print(f"{Fore.GREEN}[MIC] Microphone active - Start speaking!{Style.RESET_ALL}")
+
+        try:
+            while True:
+                # Read audio chunk
+                audio_chunk = stream.read(self.chunk_size, exception_on_overflow=False)
+
+                # Check for interruption
+                if self.config.enable_vad:
+                    has_speech = self.detect_speech(audio_chunk)
+
+                    if has_speech and self.is_bot_speaking:
+                        # User is interrupting!
+                        if not self.should_interrupt:
+                            print(f"\n{Fore.YELLOW}[INTERRUPT] User started speaking - stopping bot{Style.RESET_ALL}")
+                            self.should_interrupt = True
+
+                            # Send interrupt signal to stop bot's audio
+                            await websocket.send(json.dumps({
+                                "type": "response.cancel"
+                            }))
+
+                            # Mark interruption in latency tracker
+                            self.latency_tracker.end_bot_response(was_interrupted=True)
+                            self.is_bot_speaking = False
+
+                    # Track user speech for latency
+                    if has_speech and not self.user_is_speaking:
+                        self.user_is_speaking = True
+                        self.latency_tracker.start_user_speech()
+                    elif not has_speech and self.user_is_speaking:
+                        self.user_is_speaking = False
+                        self.latency_tracker.end_user_speech()
+
+                # Encode and send audio
+                audio_base64 = base64.b64encode(audio_chunk).decode('utf-8')
+
+                await websocket.send(json.dumps({
+                    "type": "input_audio_buffer.append",
+                    "audio": audio_base64
+                }))
+
+                await asyncio.sleep(0.01)  # Small delay to prevent overwhelming
+
+        except Exception as e:
+            print(f"{Fore.RED}Audio input error: {e}{Style.RESET_ALL}")
+        finally:
+            stream.stop_stream()
+            stream.close()
+
+    async def audio_output_stream(self):
+        """
+        Play audio received from API
+        Handles immediate interruption by stopping and restarting the stream
+        """
+        stream = self.audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=self.sample_rate,
+            output=True,
+            frames_per_buffer=self.chunk_size
+        )
+
+        try:
+            while True:
+                # Check for interruption FIRST before doing anything
+                if self.should_interrupt:
+                    print(f"{Fore.MAGENTA}[DEBUG] Stopping audio playback immediately!{Style.RESET_ALL}")
+
+                    # CRITICAL: Stop the stream immediately to clear PyAudio's buffer
+                    try:
+                        stream.stop_stream()
+                    except:
+                        pass
+
+                    # Clear the audio queue completely
+                    while not self.audio_queue.empty():
+                        try:
+                            self.audio_queue.get_nowait()
+                        except:
+                            break
+
+                    # Restart the stream for next audio
+                    try:
+                        stream.start_stream()
+                    except:
+                        pass
+
+                    self.should_interrupt = False
+                    print(f"{Fore.MAGENTA}[DEBUG] Audio playback stopped and cleared!{Style.RESET_ALL}")
+                    await asyncio.sleep(0.1)  # Brief pause
+                    continue
+
+                # Now try to play audio if available
+                if hasattr(self, 'audio_queue') and not self.audio_queue.empty():
+                    audio_chunk = await self.audio_queue.get()
+
+                    # Double-check interruption flag right before playing
+                    if not self.should_interrupt:
+                        try:
+                            stream.write(audio_chunk)
+                        except Exception as e:
+                            # Stream might be stopped, restart it
+                            try:
+                                stream.start_stream()
+                            except:
+                                pass
+                else:
+                    await asyncio.sleep(0.01)
+
+        except Exception as e:
+            print(f"{Fore.RED}Audio output error: {e}{Style.RESET_ALL}")
+        finally:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except:
+                pass
+
+    async def handle_websocket_messages(self, websocket):
+        """
+        Handle incoming messages from the Realtime API
+        """
+        self.audio_queue = asyncio.Queue()
+
+        try:
+            async for message in websocket:
+                data = json.loads(message)
+                event_type = data.get("type")
+
+                # Handle different event types
+                if event_type == "session.created":
+                    print(f"{Fore.GREEN} Session created{Style.RESET_ALL}")
+
+                elif event_type == "response.audio.delta":
+                    # Received audio chunk from bot
+                    if not self.is_bot_speaking:
+                        self.is_bot_speaking = True
+                        ttfa_ms = self.latency_tracker.start_bot_response()
+                        if ttfa_ms is not None:
+                            print(f"{Fore.CYAN}[BOT] Bot speaking... (latency: {ttfa_ms:.1f}ms){Style.RESET_ALL}")
+                        else:
+                            print(f"{Fore.CYAN}[BOT] Bot speaking...{Style.RESET_ALL}")
+
+                    audio_data = base64.b64decode(data.get("delta", ""))
+                    await self.audio_queue.put(audio_data)
+
+                elif event_type == "response.audio.done":
+                    # Bot finished speaking
+                    if self.is_bot_speaking:
+                        self.latency_tracker.end_bot_response(was_interrupted=False)
+                        self.is_bot_speaking = False
+                        print(f"{Fore.GREEN} Bot finished speaking{Style.RESET_ALL}")
+
+                elif event_type == "response.text.delta":
+                    # Text transcript (optional)
+                    text = data.get("delta", "")
+                    if text:
+                        # Print label only at the start
+                        if not self.response_text_started:
+                            print(f"{Fore.GREEN}[RESPONSE]: {Style.RESET_ALL}", end="", flush=True)
+                            self.response_text_started = True
+                        print(f"{Fore.LIGHTYELLOW_EX}{text}{Style.RESET_ALL}", end="", flush=True)
+
+                elif event_type == "response.text.done":
+                    print()  # New line after text
+                    self.response_text_started = False  # Reset for next response
+
+                elif event_type == "error":
+                    error_msg = data.get("error", {})
+                    print(f"{Fore.RED}Error: {error_msg}{Style.RESET_ALL}")
+
+                elif event_type == "input_audio_buffer.speech_started":
+                    print(f"{Fore.YELLOW}[SPEECH] Speech detected{Style.RESET_ALL}")
+
+                    # INTERRUPTION HANDLING: If bot is speaking, stop it immediately
+                    if self.is_bot_speaking:
+                        print(f"\n{Fore.RED}[INTERRUPT] User started speaking - stopping bot!{Style.RESET_ALL}")
+
+                        # Send cancel signal to stop bot's response
+                        await websocket.send(json.dumps({
+                            "type": "response.cancel"
+                        }))
+
+                        # Mark interruption in latency tracker
+                        self.latency_tracker.end_bot_response(was_interrupted=True)
+                        self.is_bot_speaking = False
+                        self.should_interrupt = True
+
+                        # Clear audio queue to stop playback immediately
+                        if hasattr(self, 'audio_queue'):
+                            while not self.audio_queue.empty():
+                                try:
+                                    self.audio_queue.get_nowait()
+                                except:
+                                    break
+
+                    # Start tracking user speech time
+                    self.latency_tracker.start_user_speech()
+
+                elif event_type == "input_audio_buffer.speech_stopped":
+                    print(f"{Fore.YELLOW}[SPEECH] Speech ended{Style.RESET_ALL}")
+                    # End tracking user speech time - this is the critical timestamp!
+                    self.latency_tracker.end_user_speech()
+
+                elif event_type == "conversation.item.input_audio_transcription.completed":
+                    transcript = data.get("transcript", "")
+                    if transcript:
+                        print(f"{Fore.CYAN}[USER SAID]: {transcript}{Style.RESET_ALL}")
+
+                        # ---------------------------
+                        # STEP 1: Detect language early
+                        # ---------------------------
+                        detected_lang = self.detect_language_from_text(transcript)
+                        self.detected_language = detected_lang
+                        print(f"{Fore.MAGENTA}[LANGUAGE DETECTED]: {detected_lang}{Style.RESET_ALL}")
+
+                        # ---------------------------
+                        # STEP 2: Add user query to conversation
+                        # ---------------------------
+                        await websocket.send(json.dumps({
+                            "type": "conversation.item.create",
+                            "item": {
+                                "type": "message",
+                                "role": "user",
+                                "content": [{"type": "input_text", "text": transcript}]
+                            }
+                        }))
+
+                        # ---------------------------
+                        # STEP 3: Reinforce language in system message
+                        # ---------------------------
+                        await websocket.send(json.dumps({
+                            "type": "conversation.item.create",
+                            "item": {
+                                "type": "message",
+                                "role": "system",
+                                "content": [{
+                                    "type": "input_text",
+                                    "text": f"CRITICAL: User is speaking {detected_lang}. You MUST respond in {detected_lang} audio. Do NOT use English."
+                                }]
+                            }
+                        }))
+
+                        # ---------------------------
+                        # STEP 4: Immediately trigger GPT response with user query + language
+                        # ---------------------------
+                        if not getattr(self, "response_triggered_for_query", False):
+                            await websocket.send(json.dumps({
+                                "type": "response.create",
+                                "response": {"modalities": ["text", "audio"]}
+                            }))
+                            self.response_triggered_for_query = True  # mark as triggered
+
+                        # ---------------------------
+                        # STEP 5: Start KB search asynchronously (won’t block GPT)
+                        # ---------------------------
+                        async def stream_kb_context():
+                            if not self.kb_enabled:
+                                return
+
+                            docs, search_latency_ms = await self.knowledge_base.search_async(transcript)
+                            if docs:
+                                for doc in docs:
+                                    context_text = self.knowledge_base.format_context_for_prompt([doc])
+                                    await websocket.send(json.dumps({
+                                        "type": "conversation.item.create",
+                                        "item": {
+                                            "type": "message",
+                                            "role": "system",
+                                            "content": [{"type": "input_text", "text": context_text}]
+                                        }
+                                    }))
+                                    print(f"{Fore.MAGENTA}  KB Streamed: {doc.get('title', 'N/A')} (score: {doc.get('score', 0):.2f}){Style.RESET_ALL}")
+                                    await asyncio.sleep(0.05)  # allow LLM to start reasoning
+
+                        asyncio.create_task(stream_kb_context())
+
+                elif event_type == "response.done":
+                    # GPT finished speaking
+                    print(f"{Fore.GREEN}[BOT] Response done{Style.RESET_ALL}")
+                    # Reset the flag so the next user query can trigger a new response
+                    self.response_triggered_for_query = False
+
+
+        except Exception as e:
+            print(f"{Fore.RED}WebSocket handler error: {e}{Style.RESET_ALL}")
+
+    async def configure_session(self, websocket):
+        """
+        Configure the Realtime API session with optimal settings
+        """
+        session_config = {
+            "type": "session.update",
+            "session": {
+                "modalities": ["text", "audio"],
+                "instructions": self.system_prompt,
+                "voice": self.config.voice,
+                "input_audio_format": "pcm16",
+                "output_audio_format": "pcm16",
+                "input_audio_transcription": {
+                    "model": "whisper-1"
+                },
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 500  # Reduced for lower latency
+                },
+                "temperature": 0.6,  # Minimum allowed value for deterministic responses
+                "max_response_output_tokens": 4096
+            }
+        }
+
+        await websocket.send(json.dumps(session_config))
+        print(f"{Fore.GREEN} Session configured with multilingual support{Style.RESET_ALL}")
+
+    async def run(self):
+        """
+        Main run loop - connect and start the conversation
+        """
+        if not await self.initialize():
+            return
+
+        # Construct WebSocket URL (strip trailing slashes to avoid double //)
+        endpoint = self.config.azure_openai_endpoint.rstrip('/')
+        ws_url = (
+            f"{endpoint.replace('https://', 'wss://')}"
+            f"/openai/realtime?api-version=2024-10-01-preview&deployment={self.config.azure_openai_deployment}"
+        )
+
+        print(f"\n{Fore.CYAN}{'='*70}")
+        print(f"Starting Presales Voicebot")
+        print(f"{'='*70}{Style.RESET_ALL}\n")
+        print(f"{Fore.YELLOW}Features enabled:")
+        print(f"   Multilingual support (auto-detect & respond)")
+        print(f"   Interruption handling")
+        print(f"   Real-time latency tracking")
+        print(f"{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}Press Ctrl+C to stop and see latency summary{Style.RESET_ALL}\n")
+
+        try:
+            import websockets
+
+            async with websockets.connect(
+                ws_url,
+                additional_headers={
+                    "api-key": self.config.azure_openai_api_key
+                }
+            ) as websocket:
+                self.websocket = websocket
+
+                # Configure session
+                await self.configure_session(websocket)
+
+                # Start all tasks concurrently
+                await asyncio.gather(
+                    self.audio_input_stream(websocket),
+                    self.audio_output_stream(),
+                    self.handle_websocket_messages(websocket)
+                )
+
+        except KeyboardInterrupt:
+            print(f"\n{Fore.YELLOW}Stopping voicebot...{Style.RESET_ALL}")
+            self.latency_tracker.print_summary()
+
+        except Exception as e:
+            print(f"{Fore.RED}Error: {e}{Style.RESET_ALL}")
+            import traceback
+            traceback.print_exc()
+
+        finally:
+            # Cleanup
+            self.audio.terminate()
+            print(f"{Fore.GREEN} Voicebot stopped{Style.RESET_ALL}")
+
+    def cleanup(self):
+        """Cleanup resources"""
+        if self.audio:
+            self.audio.terminate()
+
+
+async def main():
+    """Entry point"""
+    voicebot = RealtimeVoicebot()
+    try:
+        await voicebot.run()
+    except KeyboardInterrupt:
+        print(f"\n{Fore.YELLOW}Interrupted by user{Style.RESET_ALL}")
+    finally:
+        voicebot.cleanup()
+
+
+if __name__ == "__main__":
+    # Check Python version
+    if sys.version_info < (3, 8):
+        print(f"{Fore.RED}Python 3.8 or higher is required{Style.RESET_ALL}")
+        sys.exit(1)
+
+    # Run the voicebot
+    asyncio.run(main())
