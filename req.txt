@@ -21,3 +21,6 @@ websockets>=12.0
 
 # Terminal colors
 colorama>=0.4.6
+
+pip install webrtcvad-wheels
+python -c "import webrtcvad; print(webrtcvad.__version__)" 
