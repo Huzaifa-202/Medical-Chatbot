@@ -1,1 +1,72 @@
+@echo off
+setlocal enabledelayedexpansion
+
+echo.
+echo Restoring frontend npm packages
+echo.
+
+cd /d "%~dp0\..\app\frontend"
+if errorlevel 1 (
+    echo Failed to change directory to frontend
+    pause
+    exit /b 1
+)
+
+call npm install
+if %errorlevel% neq 0 (
+    echo Failed to restore frontend npm packages
+    pause
+    exit /b %errorlevel%
+)
+
+echo.
+echo Building frontend
+echo.
+call npm run build
+if %errorlevel% neq 0 (
+    echo Failed to build frontend
+    pause
+    exit /b %errorlevel%
+)
+
+echo.
+echo Setting up backend environment
+echo.
+cd /d "%~dp0\..\app\backend"
+if errorlevel 1 (
+    echo Failed to change directory to backend
+    pause
+    exit /b 1
+)
+
+set "VENV_PATH=%~dp0\..\..\.venv"
+set "PYTHON_EXE=%VENV_PATH%\Scripts\python.exe"
+
+REM Check if venv exists
+if not exist "%PYTHON_EXE%" (
+    echo Creating virtual environment...
+    python -m venv "%VENV_PATH%"
+    if errorlevel 1 (
+        echo Failed to create virtual environment.
+        pause
+        exit /b %errorlevel%
+    )
+    echo Installing backend dependencies...
+    call "%PYTHON_EXE%" -m pip install --upgrade pip
+    call "%PYTHON_EXE%" -m pip install -r requirements.txt
+)
+
+echo.
+echo Starting backend
+echo.
+call "%PYTHON_EXE%" -m app
+if %errorlevel% neq 0 (
+    echo Failed to start backend
+    pause
+    exit /b %errorlevel%
+)
+
+echo.
+echo All tasks completed successfully.
+pause
 
