@@ -180,6 +180,3 @@ if __name__ == "__main__":
             print("Exiting. Goodbye!")
             break
         run_rag_pipeline(user_query)
-
-8OCbFOYoEcGVEPMT368IrL90W98tfaOfOITJHtD28pDl6nEgE3zeJQQJ99BKACHYHv6XJ3w3AAAAACOGDxE9
-mV5KdTTTgF53G656pC5VIXWpOAj40T3ayXMeN6iPlJAzSeAKCujP
