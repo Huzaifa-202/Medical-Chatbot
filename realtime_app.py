@@ -7,7 +7,8 @@ from azure.identity import AzureDeveloperCliCredential, DefaultAzureCredential
 from dotenv import load_dotenv
 from ragtools import attach_rag_tools
 from rtmt import RTMiddleTier
-from d365_client import D365Client  # NEW: Import D365 client
+from d365_client import D365Client
+from acs_handler import ACSCallHandler  # NEW: Import ACS handler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voicerag")
@@ -34,7 +35,7 @@ async def create_app():
     
     app = web.Application()
     
-    # NEW: Setup D365 integration
+    # Setup D365 integration
     d365_client = None
     if os.environ.get("D365_TENANT_ID"):
         try:
@@ -48,7 +49,7 @@ async def create_app():
         except Exception as e:
             logger.error(f"❌ D365 setup failed: {e}")
     else:
-        logger.warning("⚠️ D365 credentials not found in environment")
+        logger.warning("⚠️ D365 credentials not found")
     
     rtmt = RTMiddleTier(
         credentials=llm_credential,
@@ -86,6 +87,30 @@ Example interaction logic:
     )
     
     rtmt.attach_to_app(app, "/realtime")
+    
+    # NEW: Setup ACS call handler
+    acs_connection_string = os.environ.get("ACS_CONNECTION_STRING")
+    app_url = os.environ.get("APP_URL", "https://bizapps-webapp.azurewebsites.net")
+    
+    if acs_connection_string:
+        try:
+            acs_handler = ACSCallHandler(
+                connection_string=acs_connection_string,
+                app_url=app_url,
+                d365_client=d365_client
+            )
+            
+            # Add ACS routes
+            app.router.add_post("/api/incomingCall", acs_handler.handle_incoming_call)
+            app.router.add_post("/api/callbacks", acs_handler.handle_callbacks)
+            
+            logger.info("✅ ACS call handling enabled")
+            logger.info(f"   Incoming calls: {app_url}/api/incomingCall")
+            logger.info(f"   Callbacks: {app_url}/api/callbacks")
+        except Exception as e:
+            logger.error(f"❌ ACS setup failed: {e}")
+    else:
+        logger.warning("⚠️ ACS_CONNECTION_STRING not found")
     
     current_directory = Path(__file__).parent
     app.add_routes([web.get('/', lambda _: web.FileResponse(current_directory / 'static/index.html'))])
