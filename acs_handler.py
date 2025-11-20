@@ -133,3 +133,15 @@ class ACSCallHandler:
         del active_calls[call_connection_id]
         if call_connection_id in call_transcripts:
             del call_transcripts[call_connection_id]
+
+
+
+
+(.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>python app/backend/app.py
+INFO:voicerag:Running in development mode, loading from .env file
+INFO:voicerag:✅ D365 integration enabled
+INFO:voicerag:Realtime voice choice set to shimmer
+WARNING:voicerag:⚠️ ACS_CONNECTION_STRING not found
+======== Running on http://localhost:8765 ========
+(Press CTRL+C to quit)
+
