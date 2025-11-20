@@ -1,45 +1,83 @@
-# Copyright (c) Microsoft. All rights reserved.
-# Licensed under the MIT license. See LICENSE.md file in the project root for full license information.
+import logging
+import os
+from pathlib import Path
 
-# <code>
-import azure.cognitiveservices.speech as speechsdk
-import json
+from aiohttp import web
+from azure.core.credentials import AzureKeyCredential
+from azure.identity import AzureDeveloperCliCredential, DefaultAzureCredential
+from dotenv import load_dotenv
 
-# Creates an instance of a speech config with specified subscription key and service region.
-# Replace with your own subscription key and service region (e.g., "westus") in config.json.
-# Load the configuration from the config.json file
-with open('config.json', 'r') as config_file:
-    config = json.load(config_file)
+from ragtools import attach_rag_tools
+from rtmt import RTMiddleTier
 
-speech_key = config.get("SubscriptionKey")
-service_region = config.get("ServiceRegion")
-speech_endpoint = "https://emaratvoicebot.cognitiveservices.azure.com/"
-# Creates an instance of a speech config with specified endpoint and subscription key.
-# Replace with your own endpoint and subscription key.
-speech_config = speechsdk.SpeechConfig(subscription=speech_key, endpoint=speech_endpoint)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("voicerag")
 
-# Creates a recognizer with the given settings
-speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
+async def create_app():
+    if not os.environ.get("RUNNING_IN_PRODUCTION"):
+        logger.info("Running in development mode, loading from .env file")
+        load_dotenv()
 
-print("Say something...")
+    llm_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    search_key = os.environ.get("AZURE_SEARCH_API_KEY")
 
+    credential = None
+    if not llm_key or not search_key:
+        if tenant_id := os.environ.get("AZURE_TENANT_ID"):
+            logger.info("Using AzureDeveloperCliCredential with tenant_id %s", tenant_id)
+            credential = AzureDeveloperCliCredential(tenant_id=tenant_id, process_timeout=60)
+        else:
+            logger.info("Using DefaultAzureCredential")
+            credential = DefaultAzureCredential()
+    llm_credential = AzureKeyCredential(llm_key) if llm_key else credential
+    search_credential = AzureKeyCredential(search_key) if search_key else credential
+    
+    app = web.Application()
 
-# Starts speech recognition, and returns after a single utterance is recognized. The end of a
-# single utterance is determined by listening for silence at the end or until a maximum of about 30
-# seconds of audio is processed. The task returns the recognition text as result.
-# Note: Since recognize_once() returns only a single utterance, it is suitable only for single
-# shot recognition like command or query.
-# For long-running multi-utterance recognition, use start_continuous_recognition() instead.
-result = speech_recognizer.recognize_once()
+    rtmt = RTMiddleTier(
+        credentials=llm_credential,
+        endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        deployment=os.environ["AZURE_OPENAI_REALTIME_DEPLOYMENT"],
+        voice_choice=os.environ.get("AZURE_OPENAI_REALTIME_VOICE_CHOICE") or "alloy"
+        )
+    
+    rtmt.system_message = """
+You are a helpful, concise voice assistant for FAQs. Always give answers based only on information from the knowledge base using the 'search' tool. 
+Give answer in the same language as of user. If user switches language mid conversation You must switch your language according to user language.
+Use these rules strictly:  
+1. Always check the knowledge base with the 'search' tool before answering.  
+3. Keep answers extremely short, ideally a single sentence, as the user listens via audio.  
+4. Do not read file names, keys, or source paths aloud.  
+5. Context matters: remember the user may ask follow-up questions about the same location or service; avoid unnecessary repetition.  
+6. If the knowledge base has no answer, respond: "I don’t know."  
 
-# Checks result.
-if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-    print("Recognized: {}".format(result.text))
-elif result.reason == speechsdk.ResultReason.NoMatch:
-    print("No speech could be recognized: {}".format(result.no_match_details))
-elif result.reason == speechsdk.ResultReason.Canceled:
-    cancellation_details = result.cancellation_details
-    print("Speech Recognition canceled: {}".format(cancellation_details.reason))
-    if cancellation_details.reason == speechsdk.CancellationReason.Error:
-        print("Error details: {}".format(cancellation_details.error_details))
-# </code>
+Example interaction logic:  
+- User asks nearest station → ask for location if not provided.  
+- Just give the station name which is nearer to customer.Don't give information other than station name.I just want name of the station.
+- User asks about services → provide concise yes/no.  
+- User asks about items → provide short availability info.  
+""".strip()
+    attach_rag_tools(rtmt,
+        credentials=search_credential,
+        search_endpoint=os.environ.get("AZURE_SEARCH_ENDPOINT"),
+        search_index=os.environ.get("AZURE_SEARCH_INDEX"),
+        semantic_configuration=os.environ.get("AZURE_SEARCH_SEMANTIC_CONFIGURATION") or "default",
+        identifier_field=os.environ.get("AZURE_SEARCH_IDENTIFIER_FIELD") or "chunk_id",
+        content_field=os.environ.get("AZURE_SEARCH_CONTENT_FIELD") or "chunk",
+        embedding_field=os.environ.get("AZURE_SEARCH_EMBEDDING_FIELD") or "text_vector",
+        title_field=os.environ.get("AZURE_SEARCH_TITLE_FIELD") or "title",
+        use_vector_query=(os.environ.get("AZURE_SEARCH_USE_VECTOR_QUERY") == "true") or True
+        )
+
+    rtmt.attach_to_app(app, "/realtime")
+
+    current_directory = Path(__file__).parent
+    app.add_routes([web.get('/', lambda _: web.FileResponse(current_directory / 'static/index.html'))])
+    app.router.add_static('/', path=current_directory / 'static', name='static')
+    
+    return app
+
+if __name__ == "__main__":
+    host = "localhost"
+    port = 8765
+    web.run_app(create_app(), host=host, port=port)
