@@ -2,12 +2,6 @@ import logging
 from datetime import datetime
 from aiohttp import web
 from azure.communication.callautomation import CallAutomationClient
-from azure.communication.callautomation.models import (
-    MediaStreamingConfiguration,
-    MediaStreamingAudioChannelType,
-    MediaStreamingContentType,
-    MediaStreamingTransportType
-)
 
 logger = logging.getLogger("voicerag")
 
@@ -46,20 +40,6 @@ class ACSCallHandler:
             call_connection_id = answer_result.call_connection_id
             logger.info(f"✅ Call answered: {call_connection_id}")
             
-            # Get call connection
-            call_connection = self.client.get_call_connection(call_connection_id)
-            
-            # Start media streaming to bot
-            streaming_config = MediaStreamingConfiguration(
-                transport_url=f"wss://{self.app_url.replace('https://', '').replace('http://', '')}/realtime?callId={call_connection_id}",
-                transport_type=MediaStreamingTransportType.WEBSOCKET,
-                content_type=MediaStreamingContentType.AUDIO,
-                audio_channel_type=MediaStreamingAudioChannelType.MIXED
-            )
-            
-            call_connection.start_media_streaming(streaming_config)
-            logger.info("🎵 Audio streaming started")
-            
             # Create activity in D365
             activity_id = None
             if self.d365_client:
@@ -76,7 +56,6 @@ class ACSCallHandler:
             active_calls[call_connection_id] = {
                 "caller_id": caller_id,
                 "contact": contact,
-                "call_connection": call_connection,
                 "start_time": datetime.now(),
                 "activity_id": activity_id
             }
@@ -102,12 +81,6 @@ class ACSCallHandler:
                 
                 if event_type == "Microsoft.Communication.CallDisconnected":
                     await self.handle_call_end(call_id)
-                
-                elif event_type == "Microsoft.Communication.MediaStreamingStarted":
-                    logger.info("✅ Media streaming active")
-                
-                elif event_type == "Microsoft.Communication.MediaStreamingStopped":
-                    logger.info("⏹️ Media streaming stopped")
             
             return web.Response(status=200)
             
@@ -143,13 +116,11 @@ class ACSCallHandler:
         
         # Update D365
         if self.d365_client and call_info.get('activity_id'):
-            # Update duration
             await self.d365_client.update_phone_call_duration(
                 call_info['activity_id'],
                 duration_minutes
             )
             
-            # Add transcript
             if transcript:
                 await self.d365_client.add_note_to_activity(
                     call_info['activity_id'],
@@ -162,16 +133,3 @@ class ACSCallHandler:
         del active_calls[call_connection_id]
         if call_connection_id in call_transcripts:
             del call_transcripts[call_connection_id]
-
-
-
-
-(.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>python app/backend/app.py
-Traceback (most recent call last):
-  File "D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\app\backend\app.py", line 11, in <module>
-    from acs_handler import ACSCallHandler  # NEW: Import ACS handler
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\app\backend\acs_handler.py", line 5, in <module>
-    from azure.communication.callautomation import (
-ImportError: cannot import name 'MediaStreamingConfiguration' from 'azure.communication.callautomation' (D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\.venv\Lib\site-packages\azure\communication\callautomation\__init__.py)
-
