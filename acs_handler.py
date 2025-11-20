@@ -141,7 +141,10 @@ class ACSCallHandler:
 INFO:voicerag:Running in development mode, loading from .env file
 INFO:voicerag:✅ D365 integration enabled
 INFO:voicerag:Realtime voice choice set to shimmer
-WARNING:voicerag:⚠️ ACS_CONNECTION_STRING not found
+INFO:voicerag:✅ ACS call handling enabled
+INFO:voicerag:   Incoming calls: https://bizapps-webapp.azurewebsites.net/api/incomingCall
+INFO:voicerag:   Callbacks: https://bizapps-webapp.azurewebsites.net/api/callbacks
 ======== Running on http://localhost:8765 ========
 (Press CTRL+C to quit)
+
 
