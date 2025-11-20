@@ -165,13 +165,13 @@ class ACSCallHandler:
 
 
 
+
 (.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>python app/backend/app.py
 Traceback (most recent call last):
   File "D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\app\backend\app.py", line 11, in <module>
     from acs_handler import ACSCallHandler  # NEW: Import ACS handler
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\app\backend\acs_handler.py", line 5, in <module>
-    from azure.communication.callautomation.models import (
-ModuleNotFoundError: No module named 'azure.communication.callautomation.models'
+    from azure.communication.callautomation import (
+ImportError: cannot import name 'MediaStreamingConfiguration' from 'azure.communication.callautomation' (D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\.venv\Lib\site-packages\azure\communication\callautomation\__init__.py)
 
-(.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>
