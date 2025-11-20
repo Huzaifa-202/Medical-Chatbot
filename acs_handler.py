@@ -162,3 +162,16 @@ class ACSCallHandler:
         del active_calls[call_connection_id]
         if call_connection_id in call_transcripts:
             del call_transcripts[call_connection_id]
+
+
+
+(.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>python app/backend/app.py
+Traceback (most recent call last):
+  File "D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\app\backend\app.py", line 11, in <module>
+    from acs_handler import ACSCallHandler  # NEW: Import ACS handler
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio\app\backend\acs_handler.py", line 5, in <module>
+    from azure.communication.callautomation.models import (
+ModuleNotFoundError: No module named 'azure.communication.callautomation.models'
+
+(.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>
