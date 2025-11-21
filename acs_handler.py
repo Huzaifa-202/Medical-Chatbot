@@ -1,189 +1,47 @@
-import logging
-from datetime import datetime
-from aiohttp import web
-from azure.communication.callautomation import CallAutomationClient
-
-logger = logging.getLogger("voicerag")
-
-# Store active calls
-active_calls = {}
-call_transcripts = {}
-
-class ACSCallHandler:
-    def __init__(self, connection_string: str, app_url: str, d365_client=None):
-        self.client = CallAutomationClient.from_connection_string(connection_string)
-        self.app_url = app_url
-        self.d365_client = d365_client
-    
-    async def handle_incoming_call(self, request: web.Request):
-        """Handle incoming call from ACS AND Event Grid validation"""
-        try:
-            data = await request.json()
-            
-            # Handle Event Grid validation
-            if isinstance(data, list) and len(data) > 0:
-                event = data[0]
-                
-                # Event Grid subscription validation
-                if event.get("eventType") == "Microsoft.EventGrid.SubscriptionValidationEvent":
-                    validation_code = event["data"]["validationCode"]
-                    logger.info("📋 Event Grid validation request received")
-                    return web.json_response({"validationResponse": validation_code})
-                
-                # Handle incoming call event
-                if event.get("eventType") == "Microsoft.Communication.IncomingCall":
-                    event_data = event["data"]
-                    return await self._handle_call(event_data)
-            
-            # Direct call (non-Event Grid format)
-            else:
-                return await self._handle_call(data)
-                
-        except Exception as e:
-            logger.error(f"❌ Error handling request: {e}")
-            return web.Response(status=500, text=str(e))
-    
-    async def _handle_call(self, data):
-        """Process the actual incoming call"""
-        try:
-            logger.info("📞 Incoming call received")
-            
-            incoming_call_context = data.get("incomingCallContext")
-            caller_id = data.get("from", {}).get("phoneNumber", {}).get("value", "Unknown")
-            
-            logger.info(f"Caller: {caller_id}")
-            
-            # Look up customer in D365
-            contact = None
-            if self.d365_client:
-                contact = await self.d365_client.lookup_contact_by_phone(caller_id)
-            
-            # Answer the call
-            answer_result = self.client.answer_call(
-                incoming_call_context=incoming_call_context,
-                callback_url=f"{self.app_url}/api/callbacks"
-            )
-            
-            call_connection_id = answer_result.call_connection_id
-            logger.info(f"✅ Call answered: {call_connection_id}")
-            
-            # Create activity in D365
-            activity_id = None
-            if self.d365_client:
-                subject = f"Inbound Call - {contact['fullname'] if contact else caller_id}"
-                description = f"Voice bot call started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                activity_id = await self.d365_client.create_phone_call_activity(
-                    caller_id=caller_id,
-                    contact_id=contact['contactid'] if contact else None,
-                    subject=subject,
-                    description=description
-                )
-            
-            # Store call info
-            active_calls[call_connection_id] = {
-                "caller_id": caller_id,
-                "contact": contact,
-                "start_time": datetime.now(),
-                "activity_id": activity_id
-            }
-            
-            call_transcripts[call_connection_id] = []
-            
-            return web.Response(status=200, text="Call answered")
-            
-        except Exception as e:
-            logger.error(f"❌ Error handling call: {e}")
-            return web.Response(status=500, text=str(e))
-    
-    async def handle_callbacks(self, request: web.Request):
-        """Handle call events from ACS"""
-        try:
-            data = await request.json()
-            
-            # Handle Event Grid validation for callbacks too
-            if isinstance(data, list) and len(data) > 0:
-                event = data[0]
-                if event.get("eventType") == "Microsoft.EventGrid.SubscriptionValidationEvent":
-                    validation_code = event["data"]["validationCode"]
-                    logger.info("📋 Event Grid validation for callbacks")
-                    return web.json_response({"validationResponse": validation_code})
-            
-            # Handle regular callback events
-            events = data if isinstance(data, list) else [data]
-            
-            for event in events:
-                event_type = event.get("type") or event.get("eventType")
-                call_id = event.get("callConnectionId")
-                
-                logger.info(f"📨 Event: {event_type}")
-                
-                if event_type and "CallDisconnected" in event_type:
-                    await self.handle_call_end(call_id)
-            
-            return web.Response(status=200)
-            
-        except Exception as e:
-            logger.error(f"Error in callback: {e}")
-            return web.Response(status=500)
-    
-    async def handle_call_end(self, call_connection_id: str):
-        """Handle call end - save to D365"""
-        if call_connection_id not in active_calls:
-            return
-        
-        call_info = active_calls[call_connection_id]
-        transcript = call_transcripts.get(call_connection_id, [])
-        
-        logger.info(f"☎️ Call ended: {call_connection_id}")
-        
-        # Calculate duration
-        duration_seconds = (datetime.now() - call_info['start_time']).total_seconds()
-        duration_minutes = int(duration_seconds / 60)
-        
-        # Format transcript
-        transcript_text = "=== Voice Bot Conversation ===\n\n"
-        for turn in transcript:
-            transcript_text += f"[{turn['timestamp']}]\n"
-            transcript_text += f"{turn['speaker']}: {turn['text']}\n\n"
-        
-        transcript_text += f"\n=== Call Details ===\n"
-        transcript_text += f"Duration: {duration_minutes} minutes\n"
-        transcript_text += f"Caller: {call_info['caller_id']}\n"
-        if call_info.get('contact'):
-            transcript_text += f"Customer: {call_info['contact']['fullname']}\n"
-        
-        # Update D365
-        if self.d365_client and call_info.get('activity_id'):
-            await self.d365_client.update_phone_call_duration(
-                call_info['activity_id'],
-                duration_minutes
-            )
-            
-            if transcript:
-                await self.d365_client.add_note_to_activity(
-                    call_info['activity_id'],
-                    transcript_text
-                )
-            
-            logger.info("✅ Call logged to D365")
-        
-        # Cleanup
-        del active_calls[call_connection_id]
-        if call_connection_id in call_transcripts:
-            del call_transcripts[call_connection_id]
-```
-
----
-
-## **Now:**
-
-1. **Save this file**
-
-2. **Deploy again** (same method you used before)
-
-3. **Wait for deployment** to complete (2-3 minutes)
-
-4. **Check logs** to make sure it says:
-```
-   ✅ D365 integration enabled
-   ✅ ACS call handling enabled
+2025-11-21T06:48:56.9148318Z Oryx Version: 0.2.20251017.2, Commit: 482d4c55e818733ab33b9d2131f9dc485a21fd03, ReleaseTagName: 20251017.2
+2025-11-21T06:48:56.9149816Z Output is compressed. Extracting it...
+2025-11-21T06:48:56.9536446Z Extracting '/home/site/wwwroot/output.tar.gz' to directory '/tmp/8de28577d658f21'...
+2025-11-21T06:49:13.1692032Z App path is set to '/tmp/8de28577d658f21'
+2025-11-21T06:49:13.190626Z Writing output script to '/opt/startup/startup.sh'
+2025-11-21T06:49:13.8532195Z Using packages from virtual environment antenv located at /tmp/8de28577d658f21/antenv.
+2025-11-21T06:49:13.8611978Z Updated PYTHONPATH to '/opt/startup/app_logs:/tmp/8de28577d658f21/antenv/lib/python3.12/site-packages'
+2025-11-21T06:49:19.5816238Z [2025-11-21 06:49:19 +0000] [2111] [INFO] Starting gunicorn 23.0.0
+2025-11-21T06:49:19.5827564Z [2025-11-21 06:49:19 +0000] [2111] [INFO] Listening at: http://0.0.0.0:8000 (2111)
+2025-11-21T06:49:19.5834256Z [2025-11-21 06:49:19 +0000] [2111] [INFO] Using worker: aiohttp.GunicornWebWorker
+2025-11-21T06:49:19.6028431Z [2025-11-21 06:49:19 +0000] [2119] [INFO] Booting worker with pid: 2119
+2025-11-21T06:49:21.3059755Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/_generated/models/_models_py3.py:993: SyntaxWarning: invalid escape sequence '\ '
+2025-11-21T06:49:21.3060774Z   Captions is set to ``extractive``\ , highlighting is enabled by default, and can be configured
+2025-11-21T06:49:21.3128633Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/_generated/models/_models_py3.py:1184: SyntaxWarning: invalid escape sequence '\ '
+2025-11-21T06:49:21.3128889Z   Captions is set to ``extractive``\ , highlighting is enabled by default, and can be configured
+2025-11-21T06:49:21.4911232Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/_generated/models/_search_index_client_enums.py:84: SyntaxWarning: invalid escape sequence '\ '
+2025-11-21T06:49:21.4911784Z   ``extractive``\ , highlighting is enabled by default, and can be configured by appending the
+2025-11-21T06:49:21.8469961Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6272: SyntaxWarning: invalid escape sequence '\W'
+2025-11-21T06:49:21.8470643Z   pattern: str = "\W+",
+2025-11-21T06:49:21.8481301Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6355: SyntaxWarning: invalid escape sequence '\s'
+2025-11-21T06:49:21.8481524Z   replace. For example, given the input text "aa bb aa bb", pattern "(aa)\s+(bb)", and
+2025-11-21T06:49:21.8614596Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6407: SyntaxWarning: invalid escape sequence '\s'
+2025-11-21T06:49:21.8863645Z   replace. For example, given the input text "aa bb aa bb", pattern "(aa)\s+(bb)", and
+2025-11-21T06:49:21.9058445Z /tmp/8de28577d658f21/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6497: SyntaxWarning: invalid escape sequence '\W'
+2025-11-21T06:49:21.9065585Z   pattern: str = "\W+",
+2025-11-21T06:49:23.7204572Z INFO:voicerag:Running in development mode, loading from .env file
+2025-11-21T06:49:23.7402522Z INFO:voicerag:✅ D365 integration enabled
+2025-11-21T06:49:23.7406168Z INFO:voicerag:Realtime voice choice set to shimmer
+2025-11-21T06:49:25.3371931Z INFO:voicerag:✅ ACS call handling enabled
+2025-11-21T06:49:25.3381978Z INFO:voicerag:   Incoming calls: https://bizapps-webapp.azurewebsites.net/api/incomingCall
+2025-11-21T06:49:25.3479739Z INFO:voicerag:   Callbacks: https://bizapps-webapp.azurewebsites.net/api/callbacks
+2025-11-21T06:57:43.8902914Z INFO:voicerag:📞 Incoming call received
+2025-11-21T06:57:43.8903506Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T06:57:49.1317389Z INFO:voicerag:📞 Incoming call received
+2025-11-21T06:57:49.1327008Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T06:57:54.3554208Z INFO:voicerag:📞 Incoming call received
+2025-11-21T06:57:54.3554675Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T06:57:59.6106508Z INFO:voicerag:📞 Incoming call received
+2025-11-21T06:57:59.6106955Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T07:08:16.8761652Z INFO:voicerag:📞 Incoming call received
+2025-11-21T07:08:16.8799569Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T07:08:22.1146058Z INFO:voicerag:📞 Incoming call received
+2025-11-21T07:08:22.1146533Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T07:08:27.3653032Z INFO:voicerag:📞 Incoming call received
+2025-11-21T07:08:27.3653308Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
+2025-11-21T07:08:32.6235721Z INFO:voicerag:📞 Incoming call received
+2025-11-21T07:08:32.6236141Z ERROR:voicerag:❌ Error handling call: 'list' object has no attribute 'get'
