@@ -1,94 +1,216 @@
 Connected!
-2025-11-21T07:33:37.0357298Z    _____
-2025-11-21T07:33:37.0543468Z   /  _  \ __________ _________   ____
-2025-11-21T07:33:37.0625861Z  /  /_\  \\___   /  |  \_  __ \_/ __ \
-2025-11-21T07:33:37.070356Z /    |    \/    /|  |  /|  | \/\  ___/
-2025-11-21T07:33:37.0719458Z \____|__  /_____ \____/ |__|    \___  >
-2025-11-21T07:33:37.0801652Z         \/      \/                  \/
-2025-11-21T07:33:37.0820363Z A P P   S E R V I C E   O N   L I N U X
-2025-11-21T07:33:37.0820427Z
-2025-11-21T07:33:37.0820463Z Documentation    : http://aka.ms/webapp-linux
-2025-11-21T07:33:37.0820491Z Python quickstart: https://aka.ms/python-qs
-2025-11-21T07:33:37.0820517Z Python version   : 3.12.12
-2025-11-21T07:33:37.082056Z Instance Name    : lw1sdlwk000853
-2025-11-21T07:33:37.0820602Z Instance Id      : 91baf352954053b10aec40a76c08c5d8df4b45053890ea68ab5fc855af1343fa
-2025-11-21T07:33:37.0820648Z
-2025-11-21T07:33:37.0820676Z Note: Any data outside '/home' is not persisted
-2025-11-21T07:33:39.0268592Z Starting OpenBSD Secure Shell server: sshd.
-2025-11-21T07:33:39.0556871Z WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
-2025-11-21T07:33:39.1325964Z Updating certificates in /etc/ssl/certs...
-2025-11-21T07:34:00.2590786Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_R46.pem
-2025-11-21T07:34:00.3352363Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_E46.pem
-2025-11-21T07:34:00.3352949Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_RSA_Root_CA_2022.pem
-2025-11-21T07:34:00.4512869Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_ECC_Root_CA_2022.pem
-2025-11-21T07:34:00.6104784Z 4 added, 0 removed; done.
-2025-11-21T07:34:00.639039Z Running hooks in /etc/ca-certificates/update.d...
-2025-11-21T07:34:00.6467856Z done.
-2025-11-21T07:34:00.6960637Z CA certificates copied and updated successfully.
-2025-11-21T07:34:01.1910704Z Site's appCommandLine:
-2025-11-21T07:34:01.1911613Z gunicorn main:app --worker-class aiohttp.GunicornWebWorker -w 1 -b 0.0.0.0:$PORT
-2025-11-21T07:34:01.1911854Z
-2025-11-21T07:34:01.1911883Z
-2025-11-21T07:34:01.1911906Z
-2025-11-21T07:34:01.1911935Z
-2025-11-21T07:34:01.191196Z
-2025-11-21T07:34:01.1911984Z
-2025-11-21T07:34:01.9916902Z Starting periodic command scheduler: cron.
-2025-11-21T07:34:01.9917321Z Launching oryx with: create-script -appPath /home/site/wwwroot -output /opt/startup/startup.sh -virtualEnvName antenv -defaultApp /opt/defaultsite -userStartupCommand '
-2025-11-21T07:34:01.9917372Z gunicorn main:app --worker-class aiohttp.GunicornWebWorker -w 1 -b 0.0.0.0:$PORT
-2025-11-21T07:34:01.9917395Z
-2025-11-21T07:34:01.9917421Z
-2025-11-21T07:34:01.9917442Z
-2025-11-21T07:34:01.9917527Z
-2025-11-21T07:34:01.9917549Z
-2025-11-21T07:34:01.9917569Z '
-2025-11-21T07:34:02.6224324Z Found build manifest file at '/home/site/wwwroot/oryx-manifest.toml'. Deserializing it...
-2025-11-21T07:34:02.6495468Z Build Operation ID: ac3d571fcdb8524a
-2025-11-21T07:34:02.6597003Z Oryx Version: 0.2.20251017.2, Commit: 482d4c55e818733ab33b9d2131f9dc485a21fd03, ReleaseTagName: 20251017.2
-2025-11-21T07:34:02.6597884Z Output is compressed. Extracting it...
-2025-11-21T07:34:02.6879068Z Extracting '/home/site/wwwroot/output.tar.gz' to directory '/tmp/8de28cffb3d0ff6'...
-2025-11-21T07:34:19.7564284Z App path is set to '/tmp/8de28cffb3d0ff6'
-2025-11-21T07:34:19.7856232Z Writing output script to '/opt/startup/startup.sh'
-2025-11-21T07:34:20.4391795Z Using packages from virtual environment antenv located at /tmp/8de28cffb3d0ff6/antenv.
-2025-11-21T07:34:20.4573389Z Updated PYTHONPATH to '/opt/startup/app_logs:/tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages'
-2025-11-21T07:34:27.3467154Z [2025-11-21 07:34:27 +0000] [2112] [INFO] Starting gunicorn 23.0.0
-2025-11-21T07:34:27.3550837Z [2025-11-21 07:34:27 +0000] [2112] [INFO] Listening at: http://0.0.0.0:8000 (2112)
-2025-11-21T07:34:27.3551369Z [2025-11-21 07:34:27 +0000] [2112] [INFO] Using worker: aiohttp.GunicornWebWorker
-2025-11-21T07:34:27.3688761Z [2025-11-21 07:34:27 +0000] [2120] [INFO] Booting worker with pid: 2120
-2025-11-21T07:34:29.1311574Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/_generated/models/_models_py3.py:993: SyntaxWarning: invalid escape sequence '\ '
-2025-11-21T07:34:29.1312284Z   Captions is set to ``extractive``\ , highlighting is enabled by default, and can be configured
-2025-11-21T07:34:29.1384776Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/_generated/models/_models_py3.py:1184: SyntaxWarning: invalid escape sequence '\ '
-2025-11-21T07:34:29.1385053Z   Captions is set to ``extractive``\ , highlighting is enabled by default, and can be configured
-2025-11-21T07:34:29.3055144Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/_generated/models/_search_index_client_enums.py:84: SyntaxWarning: invalid escape sequence '\ '
-2025-11-21T07:34:29.3055791Z   ``extractive``\ , highlighting is enabled by default, and can be configured by appending the
-2025-11-21T07:34:29.7644565Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6272: SyntaxWarning: invalid escape sequence '\W'
-2025-11-21T07:34:29.764515Z   pattern: str = "\W+",
-2025-11-21T07:34:29.8076751Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6355: SyntaxWarning: invalid escape sequence '\s'
-2025-11-21T07:34:29.8077201Z   replace. For example, given the input text "aa bb aa bb", pattern "(aa)\s+(bb)", and
-2025-11-21T07:34:29.8077281Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6407: SyntaxWarning: invalid escape sequence '\s'
-2025-11-21T07:34:29.8077308Z   replace. For example, given the input text "aa bb aa bb", pattern "(aa)\s+(bb)", and
-2025-11-21T07:34:29.8077338Z /tmp/8de28cffb3d0ff6/antenv/lib/python3.12/site-packages/azure/search/documents/indexes/_generated/models/_models_py3.py:6497: SyntaxWarning: invalid escape sequence '\W'
-2025-11-21T07:34:29.8077529Z   pattern: str = "\W+",
-2025-11-21T07:34:31.2284764Z INFO:voicerag:Running in development mode, loading from .env file
-2025-11-21T07:34:31.2515912Z INFO:voicerag:✅ D365 integration enabled
-2025-11-21T07:34:31.2534366Z INFO:voicerag:Realtime voice choice set to shimmer
-2025-11-21T07:34:32.1385126Z INFO:voicerag:✅ ACS call handling enabled
-2025-11-21T07:34:32.1397007Z INFO:voicerag:   Incoming calls: https://bizapps-webapp.azurewebsites.net/api/incomingCall
-2025-11-21T07:34:32.1415371Z INFO:voicerag:   Callbacks: https://bizapps-webapp.azurewebsites.net/api/callbacks
-2025-11-21T07:41:27.4587506Z INFO:voicerag:📩 Received data type: <class 'list'>
-2025-11-21T07:41:27.4589083Z INFO:voicerag:📋 Event type: Microsoft.EventGrid.SubscriptionValidationEvent
-2025-11-21T07:41:27.4589128Z INFO:voicerag:✅ Event Grid validation - responding
-2025-11-21T07:41:34.5032528Z INFO:voicerag:📩 Received data type: <class 'dict'>
-2025-11-21T07:41:34.5033386Z INFO:voicerag:📞 Processing incoming call
-2025-11-21T07:41:34.503342Z INFO:voicerag:Call data keys: dict_keys(['name'])
-2025-11-21T07:41:34.5119448Z ERROR:voicerag:❌ No incomingCallContext. Data: {'name': 'Add your name in the body'}
-2025-11-21T07:41:42.4448322Z INFO:voicerag:📩 Received data type: <class 'dict'>
-2025-11-21T07:41:42.4454344Z INFO:voicerag:📞 Processing incoming call
-2025-11-21T07:41:42.445797Z INFO:voicerag:Call data keys: dict_keys(['name'])
-2025-11-21T07:41:42.4532997Z ERROR:voicerag:❌ No incomingCallContext. Data: {'name': 'Add your name in the body'}
-2025-11-21T07:59:06.281Z No new trace in the past 1 min(s).
-2025-11-21T08:00:06.281Z No new trace in the past 2 min(s).
-2025-11-21T08:01:06.281Z No new trace in the past 3 min(s).
-2025-11-21T08:02:06.281Z No new trace in the past 4 min(s).
-2025-11-21T08:03:06.281Z No new trace in the past 5 min(s).
-2025-11-21T08:04:06.281Z No new trace in the past 6 min(s).
+2025-11-21T10:35:55.8348202Z INFO:voicerag:📩 Received data type: <class 'list'>
+2025-11-21T10:35:55.8376472Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
+2025-11-21T10:35:55.8380596Z INFO:voicerag:📞 Processing incoming call
+2025-11-21T10:35:55.8380648Z INFO:voicerag:Call data keys: dict_keys(['to', 'from', 'serverCallId', 'callerDisplayName', 'incomingCallContext', 'correlationId'])
+2025-11-21T10:35:55.8380666Z INFO:voicerag:📞 Caller: +13463755076
+2025-11-21T10:35:55.8380684Z INFO:voicerag:Getting D365 access token...
+2025-11-21T10:35:56.4449579Z INFO:voicerag:✅ D365 token obtained
+2025-11-21T10:35:56.7322648Z INFO:voicerag:No customer found for +13463755076
+2025-11-21T10:35:56.7342323Z INFO:voicerag:📞 Answering call...
+2025-11-21T10:35:56.7378636Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
+2025-11-21T10:35:56.7378827Z Request method: 'POST'
+2025-11-21T10:35:56.7378851Z Request headers:
+2025-11-21T10:35:56.737887Z     'Content-Type': 'application/json'
+2025-11-21T10:35:56.7378889Z     'Content-Length': '9072'
+2025-11-21T10:35:56.7378908Z     'Repeatability-First-Sent': 'REDACTED'
+2025-11-21T10:35:56.7378927Z     'Repeatability-Request-ID': 'REDACTED'
+2025-11-21T10:35:56.7378945Z     'Accept': 'application/json'
+2025-11-21T10:35:56.7378965Z     'x-ms-client-request-id': 'dd03ce04-c6c5-11f0-b822-46a038d79753'
+2025-11-21T10:35:56.7378988Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
+2025-11-21T10:35:56.7379007Z     'x-ms-date': 'REDACTED'
+2025-11-21T10:35:56.7379061Z     'x-ms-content-sha256': 'REDACTED'
+2025-11-21T10:35:56.737908Z     'x-ms-return-client-request-id': 'true'
+2025-11-21T10:35:56.7379207Z     'Authorization': 'REDACTED'
+2025-11-21T10:35:56.737923Z A body is sent with the request
+2025-11-21T10:35:57.1736138Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
+2025-11-21T10:35:57.1737151Z Response headers:
+2025-11-21T10:35:57.1737188Z     'Date': 'Fri, 21 Nov 2025 10:35:57 GMT'
+2025-11-21T10:35:57.173721Z     'Content-Type': 'application/json; charset=utf-8'
+2025-11-21T10:35:57.1737229Z     'Transfer-Encoding': 'chunked'
+2025-11-21T10:35:57.1737247Z     'Connection': 'keep-alive'
+2025-11-21T10:35:57.1737349Z     'MS-CV': 'REDACTED'
+2025-11-21T10:35:57.173737Z     'X-Microsoft-Skype-Client': 'REDACTED'
+2025-11-21T10:35:57.1737389Z     'X-Ms-Client-Version': 'REDACTED'
+2025-11-21T10:35:57.1737407Z     'api-supported-versions': 'REDACTED'
+2025-11-21T10:35:57.1737427Z     'x-ms-client-request-id': 'dd03ce04-c6c5-11f0-b822-46a038d79753'
+2025-11-21T10:35:57.1737446Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
+2025-11-21T10:35:57.1737465Z     'x-azure-ref': 'REDACTED'
+2025-11-21T10:35:57.1737484Z     'Strict-Transport-Security': 'REDACTED'
+2025-11-21T10:35:57.1737503Z     'X-Cache': 'REDACTED'
+2025-11-21T10:35:57.1860892Z INFO:voicerag:✅ Call answered: 0e006880-2bae-4458-94ab-1261eaac1af3
+2025-11-21T10:35:57.9391505Z INFO:voicerag:✅ Phone call activity created: dae90ed7-c5c6-f011-bbd3-7c1e52023626
+2025-11-21T10:36:09.1671262Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
+2025-11-21T10:36:09.5844388Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
+2025-11-21T10:36:30.6705673Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
+2025-11-21T10:37:14.2064239Z INFO:voicerag:📩 Received data type: <class 'list'>
+2025-11-21T10:37:14.207597Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
+2025-11-21T10:37:14.2076153Z INFO:voicerag:📞 Processing incoming call
+2025-11-21T10:37:14.2183461Z INFO:voicerag:Call data keys: dict_keys(['to', 'from', 'serverCallId', 'callerDisplayName', 'incomingCallContext', 'correlationId'])
+2025-11-21T10:37:14.2183628Z INFO:voicerag:📞 Caller: +13463755076
+2025-11-21T10:37:14.4461463Z INFO:voicerag:No customer found for +13463755076
+2025-11-21T10:37:14.4584041Z INFO:voicerag:📞 Answering call...
+2025-11-21T10:37:14.4584491Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
+2025-11-21T10:37:14.458452Z Request method: 'POST'
+2025-11-21T10:37:14.4584539Z Request headers:
+2025-11-21T10:37:14.4584558Z     'Content-Type': 'application/json'
+2025-11-21T10:37:14.4584576Z     'Content-Length': '9053'
+2025-11-21T10:37:14.4584594Z     'Repeatability-First-Sent': 'REDACTED'
+2025-11-21T10:37:14.4584614Z     'Repeatability-Request-ID': 'REDACTED'
+2025-11-21T10:37:14.4584632Z     'Accept': 'application/json'
+2025-11-21T10:37:14.4584688Z     'x-ms-client-request-id': '0b57398a-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:37:14.4584713Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
+2025-11-21T10:37:14.4584731Z     'x-ms-date': 'REDACTED'
+2025-11-21T10:37:14.458475Z     'x-ms-content-sha256': 'REDACTED'
+2025-11-21T10:37:14.4584768Z     'x-ms-return-client-request-id': 'true'
+2025-11-21T10:37:14.4584786Z     'Authorization': 'REDACTED'
+2025-11-21T10:37:14.4584804Z A body is sent with the request
+2025-11-21T10:37:14.7189932Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
+2025-11-21T10:37:14.7190369Z Response headers:
+2025-11-21T10:37:14.7190404Z     'Date': 'Fri, 21 Nov 2025 10:37:14 GMT'
+2025-11-21T10:37:14.7190428Z     'Content-Type': 'application/json; charset=utf-8'
+2025-11-21T10:37:14.7190491Z     'Transfer-Encoding': 'chunked'
+2025-11-21T10:37:14.7190508Z     'Connection': 'keep-alive'
+2025-11-21T10:37:14.7190523Z     'MS-CV': 'REDACTED'
+2025-11-21T10:37:14.7190539Z     'X-Microsoft-Skype-Client': 'REDACTED'
+2025-11-21T10:37:14.7190555Z     'X-Ms-Client-Version': 'REDACTED'
+2025-11-21T10:37:14.7190571Z     'api-supported-versions': 'REDACTED'
+2025-11-21T10:37:14.7190588Z     'x-ms-client-request-id': '0b57398a-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:37:14.7190605Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
+2025-11-21T10:37:14.7190622Z     'x-azure-ref': 'REDACTED'
+2025-11-21T10:37:14.7190638Z     'Strict-Transport-Security': 'REDACTED'
+2025-11-21T10:37:14.7190653Z     'X-Cache': 'REDACTED'
+2025-11-21T10:37:14.7190698Z INFO:voicerag:✅ Call answered: 1f006980-d45f-4bf1-8f63-a394268e43f3
+2025-11-21T10:37:15.1728006Z INFO:voicerag:✅ Phone call activity created: 701cb20a-c6c6-f011-bbd3-7c1e527fc4af
+2025-11-21T10:37:17.1141817Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
+2025-11-21T10:37:17.4704973Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
+2025-11-21T10:37:38.3519429Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
+2025-11-21T10:38:58.9592922Z INFO:voicerag:📩 Received data type: <class 'list'>
+2025-11-21T10:38:58.9603933Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
+2025-11-21T10:38:58.960434Z INFO:voicerag:📞 Processing incoming call
+2025-11-21T10:38:58.960438Z INFO:voicerag:Call data keys: dict_keys(['to', 'from', 'serverCallId', 'callerDisplayName', 'incomingCallContext', 'correlationId'])
+2025-11-21T10:38:58.9604399Z INFO:voicerag:📞 Caller: +13463755076
+2025-11-21T10:38:59.0158995Z INFO:voicerag:No customer found for +13463755076
+2025-11-21T10:38:59.0195976Z INFO:voicerag:📞 Answering call...
+2025-11-21T10:38:59.0196341Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
+2025-11-21T10:38:59.0196381Z Request method: 'POST'
+2025-11-21T10:38:59.0196399Z Request headers:
+2025-11-21T10:38:59.0196503Z     'Content-Type': 'application/json'
+2025-11-21T10:38:59.0196523Z     'Content-Length': '9075'
+2025-11-21T10:38:59.0196542Z     'Repeatability-First-Sent': 'REDACTED'
+2025-11-21T10:38:59.0196561Z     'Repeatability-Request-ID': 'REDACTED'
+2025-11-21T10:38:59.0196579Z     'Accept': 'application/json'
+2025-11-21T10:38:59.01966Z     'x-ms-client-request-id': '49a9c6f8-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:38:59.0196625Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
+2025-11-21T10:38:59.0196644Z     'x-ms-date': 'REDACTED'
+2025-11-21T10:38:59.0196663Z     'x-ms-content-sha256': 'REDACTED'
+2025-11-21T10:38:59.0196681Z     'x-ms-return-client-request-id': 'true'
+2025-11-21T10:38:59.01967Z     'Authorization': 'REDACTED'
+2025-11-21T10:38:59.0196738Z A body is sent with the request
+2025-11-21T10:38:59.2164957Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
+2025-11-21T10:38:59.2165694Z Response headers:
+2025-11-21T10:38:59.2165734Z     'Date': 'Fri, 21 Nov 2025 10:38:59 GMT'
+2025-11-21T10:38:59.2165755Z     'Content-Type': 'application/json; charset=utf-8'
+2025-11-21T10:38:59.2165773Z     'Transfer-Encoding': 'chunked'
+2025-11-21T10:38:59.2165792Z     'Connection': 'keep-alive'
+2025-11-21T10:38:59.2165809Z     'MS-CV': 'REDACTED'
+2025-11-21T10:38:59.2165834Z     'X-Microsoft-Skype-Client': 'REDACTED'
+2025-11-21T10:38:59.2165855Z     'X-Ms-Client-Version': 'REDACTED'
+2025-11-21T10:38:59.2165873Z     'api-supported-versions': 'REDACTED'
+2025-11-21T10:38:59.2165989Z     'x-ms-client-request-id': '49a9c6f8-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:38:59.2166009Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
+2025-11-21T10:38:59.2166028Z     'x-azure-ref': 'REDACTED'
+2025-11-21T10:38:59.2166047Z     'Strict-Transport-Security': 'REDACTED'
+2025-11-21T10:38:59.2166065Z     'X-Cache': 'REDACTED'
+2025-11-21T10:38:59.2180915Z INFO:voicerag:✅ Call answered: 16005b80-f5dd-48ca-ae8d-264bb7262453
+2025-11-21T10:38:59.3213879Z INFO:voicerag:✅ Phone call activity created: 7f9f3247-c6c6-f011-bbd3-7c1e527fc4af
+2025-11-21T10:39:01.2078592Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
+2025-11-21T10:39:01.482609Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
+2025-11-21T10:39:16.6981564Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
+2025-11-21T10:39:46.2284501Z INFO:voicerag:📩 Received data type: <class 'list'>
+2025-11-21T10:39:46.2331634Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
+2025-11-21T10:39:46.233176Z INFO:voicerag:📞 Processing incoming call
+2025-11-21T10:39:46.2331868Z INFO:voicerag:Call data keys: dict_keys(['to', 'from', 'serverCallId', 'callerDisplayName', 'incomingCallContext', 'correlationId'])
+2025-11-21T10:39:46.2331898Z INFO:voicerag:📞 Caller: +13463755076
+2025-11-21T10:39:46.4318736Z INFO:voicerag:No customer found for +13463755076
+2025-11-21T10:39:46.4319421Z INFO:voicerag:📞 Answering call...
+2025-11-21T10:39:46.437845Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
+2025-11-21T10:39:46.4378833Z Request method: 'POST'
+2025-11-21T10:39:46.4378866Z Request headers:
+2025-11-21T10:39:46.4378888Z     'Content-Type': 'application/json'
+2025-11-21T10:39:46.4378908Z     'Content-Length': '9067'
+2025-11-21T10:39:46.437893Z     'Repeatability-First-Sent': 'REDACTED'
+2025-11-21T10:39:46.4378951Z     'Repeatability-Request-ID': 'REDACTED'
+2025-11-21T10:39:46.4378973Z     'Accept': 'application/json'
+2025-11-21T10:39:46.4378996Z     'x-ms-client-request-id': '65ece304-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:39:46.4379022Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
+2025-11-21T10:39:46.4379043Z     'x-ms-date': 'REDACTED'
+2025-11-21T10:39:46.4379091Z     'x-ms-content-sha256': 'REDACTED'
+2025-11-21T10:39:46.4379114Z     'x-ms-return-client-request-id': 'true'
+2025-11-21T10:39:46.4379134Z     'Authorization': 'REDACTED'
+2025-11-21T10:39:46.4379154Z A body is sent with the request
+2025-11-21T10:39:46.4777145Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
+2025-11-21T10:39:46.4777574Z Response headers:
+2025-11-21T10:39:46.4777608Z     'Date': 'Fri, 21 Nov 2025 10:39:46 GMT'
+2025-11-21T10:39:46.4777636Z     'Content-Type': 'application/json; charset=utf-8'
+2025-11-21T10:39:46.4777661Z     'Transfer-Encoding': 'chunked'
+2025-11-21T10:39:46.4777683Z     'Connection': 'keep-alive'
+2025-11-21T10:39:46.4777704Z     'MS-CV': 'REDACTED'
+2025-11-21T10:39:46.4777807Z     'X-Microsoft-Skype-Client': 'REDACTED'
+2025-11-21T10:39:46.4777832Z     'X-Ms-Client-Version': 'REDACTED'
+2025-11-21T10:39:46.4777853Z     'api-supported-versions': 'REDACTED'
+2025-11-21T10:39:46.4777877Z     'x-ms-client-request-id': '65ece304-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:39:46.47779Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
+2025-11-21T10:39:46.4777921Z     'x-azure-ref': 'REDACTED'
+2025-11-21T10:39:46.4777943Z     'Strict-Transport-Security': 'REDACTED'
+2025-11-21T10:39:46.4777963Z     'X-Cache': 'REDACTED'
+2025-11-21T10:39:46.4797004Z INFO:voicerag:✅ Call answered: 16005b80-1cd8-4664-bc7d-1b7c24f80729
+2025-11-21T10:39:46.857555Z INFO:voicerag:✅ Phone call activity created: 35737865-c6c6-f011-bbd3-7c1e52813591
+2025-11-21T10:39:51.5683252Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
+2025-11-21T10:39:51.818821Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
+2025-11-21T10:40:02.3970626Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
+2025-11-21T10:43:18.7642826Z INFO:voicerag:📩 Received data type: <class 'list'>
+2025-11-21T10:43:18.7643398Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
+2025-11-21T10:43:18.7643435Z INFO:voicerag:📞 Processing incoming call
+2025-11-21T10:43:18.7643458Z INFO:voicerag:Call data keys: dict_keys(['to', 'from', 'serverCallId', 'callerDisplayName', 'incomingCallContext', 'correlationId'])
+2025-11-21T10:43:18.7643477Z INFO:voicerag:📞 Caller: +13463755076
+2025-11-21T10:43:18.8184518Z INFO:voicerag:No customer found for +13463755076
+2025-11-21T10:43:18.8188352Z INFO:voicerag:📞 Answering call...
+2025-11-21T10:43:18.8201191Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
+2025-11-21T10:43:18.8201445Z Request method: 'POST'
+2025-11-21T10:43:18.8201468Z Request headers:
+2025-11-21T10:43:18.8201539Z     'Content-Type': 'application/json'
+2025-11-21T10:43:18.8201555Z     'Content-Length': '9061'
+2025-11-21T10:43:18.8201572Z     'Repeatability-First-Sent': 'REDACTED'
+2025-11-21T10:43:18.8201588Z     'Repeatability-Request-ID': 'REDACTED'
+2025-11-21T10:43:18.8201606Z     'Accept': 'application/json'
+2025-11-21T10:43:18.8201624Z     'x-ms-client-request-id': 'e4847538-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:43:18.8201644Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
+2025-11-21T10:43:18.8201772Z     'x-ms-date': 'REDACTED'
+2025-11-21T10:43:18.8201792Z     'x-ms-content-sha256': 'REDACTED'
+2025-11-21T10:43:18.8201809Z     'x-ms-return-client-request-id': 'true'
+2025-11-21T10:43:18.8201825Z     'Authorization': 'REDACTED'
+2025-11-21T10:43:18.8201864Z A body is sent with the request
+2025-11-21T10:43:18.9850899Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
+2025-11-21T10:43:18.9851411Z Response headers:
+2025-11-21T10:43:18.985144Z     'Date': 'Fri, 21 Nov 2025 10:43:18 GMT'
+2025-11-21T10:43:18.9851464Z     'Content-Type': 'application/json; charset=utf-8'
+2025-11-21T10:43:18.9851489Z     'Transfer-Encoding': 'chunked'
+2025-11-21T10:43:18.9851508Z     'Connection': 'keep-alive'
+2025-11-21T10:43:18.9851526Z     'MS-CV': 'REDACTED'
+2025-11-21T10:43:18.9851546Z     'X-Microsoft-Skype-Client': 'REDACTED'
+2025-11-21T10:43:18.9851565Z     'X-Ms-Client-Version': 'REDACTED'
+2025-11-21T10:43:18.9851594Z     'api-supported-versions': 'REDACTED'
+2025-11-21T10:43:18.9851699Z     'x-ms-client-request-id': 'e4847538-c6c6-11f0-b822-46a038d79753'
+2025-11-21T10:43:18.9861561Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
+2025-11-21T10:43:18.986161Z     'x-azure-ref': 'REDACTED'
+2025-11-21T10:43:18.9861629Z     'Strict-Transport-Security': 'REDACTED'
+2025-11-21T10:43:18.9861645Z     'X-Cache': 'REDACTED'
+2025-11-21T10:43:18.9862407Z INFO:voicerag:✅ Call answered: 29005c80-3b13-4d0c-8a0e-ddd7a319f905
+2025-11-21T10:43:19.0632653Z INFO:voicerag:✅ Phone call activity created: 708beee2-c6c6-f011-bbd3-7c1e52813591
+2025-11-21T10:43:20.3008628Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
+2025-11-21T10:43:20.3097963Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
+2025-11-21T10:44:26.8986525Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
+2025-11-21T11:47:06.124Z No new trace in the past 1 min(s).
+2025-11-21T11:48:06.124Z No new trace in the past 2 min(s).
+2025-11-21T11:49:06.124Z No new trace in the past 3 min(s).
