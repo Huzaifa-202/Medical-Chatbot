@@ -1,7 +1,14 @@
 import logging
 from datetime import datetime
 from aiohttp import web
-from azure.communication.callautomation import CallAutomationClient
+from azure.communication.callautomation import (
+    CallAutomationClient,
+    MediaStreamingOptions,
+    MediaStreamingTransportType,
+    MediaStreamingContentType,
+    MediaStreamingAudioChannelType,
+    AudioFormat
+)
 
 logger = logging.getLogger("voicerag")
 
@@ -83,62 +90,64 @@ class ACSCallHandler:
             if self.d365_client and caller_id != "Unknown":
                 contact = await self.d365_client.lookup_contact_by_phone(caller_id)
             
-            # ⚡ Answer the call FIRST
-            logger.info("📞 Answering call...")
-            answer_result = self.client.answer_call(
-                incoming_call_context=incoming_call_context,
-                callback_url=f"{self.app_url}/api/callbacks"
-            )
-            
-            call_connection_id = answer_result.call_connection_id
-            logger.info(f"✅ Call answered: {call_connection_id}")
-            
-            # ⚡ NOW START AUDIO STREAMING
+            # ✅ CONFIGURE MEDIA STREAMING OPTIONS
+            media_streaming_options = None
             try:
-                from azure.communication.callautomation import (
-                    StartMediaStreamingOptions,
-                    MediaStreamingTransportType,
-                    MediaStreamingContentType,
-                    MediaStreamingAudioChannelType
-                )
-                
-                call_connection = self.client.get_call_connection(call_connection_id)
-                
-                # Start media streaming to our /realtime endpoint
+                # WebSocket URL for audio streaming
                 websocket_url = f"wss://{self.app_url.replace('https://', '').replace('http://', '')}/realtime"
                 
-                logger.info(f"🎵 Starting audio streaming to: {websocket_url}")
+                logger.info(f"🎵 Configuring audio streaming to: {websocket_url}")
                 
-                # Create proper streaming options
-                streaming_options = StartMediaStreamingOptions(
+                # Create media streaming options
+                media_streaming_options = MediaStreamingOptions(
                     transport_url=websocket_url,
                     transport_type=MediaStreamingTransportType.WEBSOCKET,
                     content_type=MediaStreamingContentType.AUDIO,
-                    audio_channel_type=MediaStreamingAudioChannelType.MIXED
+                    audio_channel_type=MediaStreamingAudioChannelType.MIXED,
+                    start_media_streaming=True,  # ✅ Start immediately when call is answered
+                    enable_bidirectional=True,   # ✅ Allow bot to speak back
+                    audio_format=AudioFormat.PCM24_K_MONO  # ✅ 24kHz audio
                 )
                 
-                # Start streaming
-                call_connection.start_media_streaming(streaming_options)
-                
-                logger.info("✅ Audio streaming started!")
+                logger.info("✅ Media streaming options configured")
                 
             except Exception as e:
-                logger.error(f"❌ Failed to start audio streaming: {e}")
-                logger.error(f"   This means customer will hear silence!")
+                logger.error(f"❌ Failed to configure streaming: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
+                logger.error(f"   ⚠️ Call will be answered without streaming!")
+            
+            # ⚡ Answer the call WITH streaming options
+            logger.info("📞 Answering call with media streaming...")
+            
+            answer_result = self.client.answer_call(
+                incoming_call_context=incoming_call_context,
+                callback_url=f"{self.app_url}/api/callbacks",
+                media_streaming=media_streaming_options  # ✅ Pass streaming options here
+            )
+            
+            call_connection_id = answer_result.call_connection_id
+            
+            if media_streaming_options:
+                logger.info(f"✅ Call answered with streaming: {call_connection_id}")
+            else:
+                logger.info(f"✅ Call answered (no streaming): {call_connection_id}")
             
             # Create D365 activity (async, non-blocking)
             activity_id = None
             if self.d365_client:
-                subject = f"Inbound Call - {contact['fullname'] if contact else caller_id}"
-                description = f"Voice bot call started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                activity_id = await self.d365_client.create_phone_call_activity(
-                    caller_id=caller_id,
-                    contact_id=contact['contactid'] if contact else None,
-                    subject=subject,
-                    description=description
-                )
+                try:
+                    subject = f"Inbound Call - {contact['fullname'] if contact else caller_id}"
+                    description = f"Voice bot call started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    activity_id = await self.d365_client.create_phone_call_activity(
+                        caller_id=caller_id,
+                        contact_id=contact['contactid'] if contact else None,
+                        subject=subject,
+                        description=description
+                    )
+                    logger.info(f"✅ Phone call activity created: {activity_id}")
+                except Exception as e:
+                    logger.error(f"⚠️ Failed to create D365 activity: {e}")
             
             # Store call info
             active_calls[call_connection_id] = {
@@ -221,18 +230,21 @@ class ACSCallHandler:
         
         # Update D365
         if self.d365_client and call_info.get('activity_id'):
-            await self.d365_client.update_phone_call_duration(
-                call_info['activity_id'],
-                duration_minutes
-            )
-            
-            if transcript:
-                await self.d365_client.add_note_to_activity(
+            try:
+                await self.d365_client.update_phone_call_duration(
                     call_info['activity_id'],
-                    transcript_text
+                    duration_minutes
                 )
-            
-            logger.info("✅ Call logged to D365")
+                
+                if transcript:
+                    await self.d365_client.add_note_to_activity(
+                        call_info['activity_id'],
+                        transcript_text
+                    )
+                
+                logger.info("✅ Call logged to D365")
+            except Exception as e:
+                logger.error(f"⚠️ Failed to update D365: {e}")
         
         # Cleanup
         del active_calls[call_connection_id]
