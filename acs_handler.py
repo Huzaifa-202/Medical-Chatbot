@@ -1,233 +1,59 @@
-import logging
-from datetime import datetime
-from aiohttp import web
-from azure.communication.callautomation import CallAutomationClient
-
-logger = logging.getLogger("voicerag")
-
-# Store active calls
-active_calls = {}
-call_transcripts = {}
-
-class ACSCallHandler:
-    def __init__(self, connection_string: str, app_url: str, d365_client=None):
-        self.client = CallAutomationClient.from_connection_string(connection_string)
-        self.app_url = app_url
-        self.d365_client = d365_client
-    
-    async def handle_incoming_call(self, request: web.Request):
-        """Handle incoming call from ACS AND Event Grid validation"""
-        try:
-            data = await request.json()
-            logger.info(f"📩 Received data type: {type(data)}")
-            
-            # Handle Event Grid format (array of events)
-            if isinstance(data, list):
-                if len(data) == 0:
-                    return web.Response(status=200, text="Empty event array")
-                
-                event = data[0]
-                event_type = event.get("eventType")
-                
-                logger.info(f"📋 Event type: {event_type}")
-                
-                # Event Grid subscription validation
-                if event_type == "Microsoft.EventGrid.SubscriptionValidationEvent":
-                    validation_code = event["data"]["validationCode"]
-                    logger.info("✅ Event Grid validation - responding")
-                    return web.json_response({"validationResponse": validation_code})
-                
-                # Handle incoming call event
-                if event_type == "Microsoft.Communication.IncomingCall":
-                    return await self._handle_call(event["data"])
-                
-                logger.warning(f"⚠️ Unknown event type: {event_type}")
-                return web.Response(status=200, text="Event received")
-            
-            # Direct call (non-Event Grid format)
-            else:
-                return await self._handle_call(data)
-                
-        except Exception as e:
-            logger.error(f"❌ Error handling request: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return web.Response(status=500, text=str(e))
-    
-    async def _handle_call(self, data):
-        """Process incoming call - with audio streaming"""
-        try:
-            logger.info("📞 Processing incoming call")
-            
-            incoming_call_context = data.get("incomingCallContext")
-            
-            if not incoming_call_context:
-                logger.error(f"❌ No incomingCallContext")
-                return web.Response(status=400, text="Invalid call data")
-            
-            # Extract caller ID
-            from_data = data.get("from", {})
-            if isinstance(from_data, dict):
-                phone_number_data = from_data.get("phoneNumber", {})
-                if isinstance(phone_number_data, dict):
-                    caller_id = phone_number_data.get("value", "Unknown")
-                else:
-                    caller_id = "Unknown"
-            else:
-                caller_id = "Unknown"
-            
-            logger.info(f"📞 Caller: {caller_id}")
-            
-            # Look up in D365 (optional)
-            contact = None
-            if self.d365_client and caller_id != "Unknown":
-                contact = await self.d365_client.lookup_contact_by_phone(caller_id)
-            
-            # ⚡ Answer the call FIRST
-            logger.info("📞 Answering call...")
-            answer_result = self.client.answer_call(
-                incoming_call_context=incoming_call_context,
-                callback_url=f"{self.app_url}/api/callbacks"
-            )
-            
-            call_connection_id = answer_result.call_connection_id
-            logger.info(f"✅ Call answered: {call_connection_id}")
-            
-            # ⚡ NOW START AUDIO STREAMING
-            try:
-                call_connection = self.client.get_call_connection(call_connection_id)
-                
-                # Start media streaming to our /realtime endpoint
-                websocket_url = f"wss://{self.app_url.replace('https://', '').replace('http://', '')}/realtime"
-                
-                logger.info(f"🎵 Starting audio streaming to: {websocket_url}")
-                
-                # Use the CallConnection's media operations
-                call_connection.start_media_streaming(
-                    start_media_streaming_request={
-                        "operationContext": "voicebot",
-                        "transportUrl": websocket_url,
-                        "transportType": "websocket",
-                        "contentType": "audio",
-                        "audioChannelType": "mixed"
-                    }
-                )
-                
-                logger.info("✅ Audio streaming started!")
-                
-            except Exception as e:
-                logger.error(f"❌ Failed to start audio streaming: {e}")
-                logger.error(f"   This means customer will hear silence!")
-                import traceback
-                logger.error(traceback.format_exc())
-            
-            # Create D365 activity (async, non-blocking)
-            activity_id = None
-            if self.d365_client:
-                subject = f"Inbound Call - {contact['fullname'] if contact else caller_id}"
-                description = f"Voice bot call started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                activity_id = await self.d365_client.create_phone_call_activity(
-                    caller_id=caller_id,
-                    contact_id=contact['contactid'] if contact else None,
-                    subject=subject,
-                    description=description
-                )
-            
-            # Store call info
-            active_calls[call_connection_id] = {
-                "caller_id": caller_id,
-                "contact": contact,
-                "start_time": datetime.now(),
-                "activity_id": activity_id
-            }
-            
-            call_transcripts[call_connection_id] = []
-            
-            return web.Response(status=200, text="Call answered")
-            
-        except Exception as e:
-            logger.error(f"❌ Error in _handle_call: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return web.Response(status=500, text=str(e))
-    
-    async def handle_callbacks(self, request: web.Request):
-        """Handle call events from ACS"""
-        try:
-            data = await request.json()
-            
-            # Handle Event Grid validation for callbacks
-            if isinstance(data, list) and len(data) > 0:
-                event = data[0]
-                if event.get("eventType") == "Microsoft.EventGrid.SubscriptionValidationEvent":
-                    validation_code = event["data"]["validationCode"]
-                    logger.info("✅ Event Grid validation for callbacks")
-                    return web.json_response({"validationResponse": validation_code})
-            
-            # Handle regular callback events
-            events = data if isinstance(data, list) else [data]
-            
-            for event in events:
-                event_type = event.get("type") or event.get("eventType")
-                call_id = event.get("callConnectionId")
-                
-                logger.info(f"📨 Callback event: {event_type}")
-                
-                if event_type and "CallDisconnected" in event_type:
-                    if call_id:
-                        await self.handle_call_end(call_id)
-            
-            return web.Response(status=200)
-            
-        except Exception as e:
-            logger.error(f"❌ Error in callback: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return web.Response(status=500)
-    
-    async def handle_call_end(self, call_connection_id: str):
-        """Handle call end - save to D365"""
-        if call_connection_id not in active_calls:
-            logger.warning(f"⚠️ Call {call_connection_id} not found in active calls")
-            return
-        
-        call_info = active_calls[call_connection_id]
-        transcript = call_transcripts.get(call_connection_id, [])
-        
-        logger.info(f"☎️ Call ended: {call_connection_id}")
-        
-        # Calculate duration
-        duration_seconds = (datetime.now() - call_info['start_time']).total_seconds()
-        duration_minutes = int(duration_seconds / 60)
-        
-        # Format transcript
-        transcript_text = "=== Voice Bot Conversation ===\n\n"
-        for turn in transcript:
-            transcript_text += f"[{turn['timestamp']}]\n"
-            transcript_text += f"{turn['speaker']}: {turn['text']}\n\n"
-        
-        transcript_text += f"\n=== Call Details ===\n"
-        transcript_text += f"Duration: {duration_minutes} minutes\n"
-        transcript_text += f"Caller: {call_info['caller_id']}\n"
-        if call_info.get('contact'):
-            transcript_text += f"Customer: {call_info['contact']['fullname']}\n"
-        
-        # Update D365
-        if self.d365_client and call_info.get('activity_id'):
-            await self.d365_client.update_phone_call_duration(
-                call_info['activity_id'],
-                duration_minutes
-            )
-            
-            if transcript:
-                await self.d365_client.add_note_to_activity(
-                    call_info['activity_id'],
-                    transcript_text
-                )
-            
-            logger.info("✅ Call logged to D365")
-        
-        # Cleanup
-        del active_calls[call_connection_id]
-        if call_connection_id in call_transcripts:
-            del call_transcripts[call_connection_id]
+2025-11-21T13:22:41.7382571Z INFO:voicerag:📩 Received data type: <class 'list'>
+2025-11-21T13:22:41.7449408Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
+2025-11-21T13:22:41.7463774Z INFO:voicerag:📞 Processing incoming call
+2025-11-21T13:22:41.7463827Z INFO:voicerag:📞 Caller: +13463755076
+2025-11-21T13:22:41.746385Z INFO:voicerag:Getting D365 access token...
+2025-11-21T13:22:42.3501866Z INFO:voicerag:✅ D365 token obtained
+2025-11-21T13:22:42.4171263Z INFO:voicerag:No customer found for +13463755076
+2025-11-21T13:22:42.4232953Z INFO:voicerag:📞 Answering call...
+2025-11-21T13:22:42.4414417Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
+2025-11-21T13:22:42.4414904Z Request method: 'POST'
+2025-11-21T13:22:42.4415036Z Request headers:
+2025-11-21T13:22:42.4415063Z     'Content-Type': 'application/json'
+2025-11-21T13:22:42.4415085Z     'Content-Length': '9072'
+2025-11-21T13:22:42.4415108Z     'Repeatability-First-Sent': 'REDACTED'
+2025-11-21T13:22:42.441513Z     'Repeatability-Request-ID': 'REDACTED'
+2025-11-21T13:22:42.4415152Z     'Accept': 'application/json'
+2025-11-21T13:22:42.4415176Z     'x-ms-client-request-id': '28df659c-c6dd-11f0-8db7-42e7a69d7ba0'
+2025-11-21T13:22:42.4415204Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
+2025-11-21T13:22:42.4415226Z     'x-ms-date': 'REDACTED'
+2025-11-21T13:22:42.4415247Z     'x-ms-content-sha256': 'REDACTED'
+2025-11-21T13:22:42.441527Z     'x-ms-return-client-request-id': 'true'
+2025-11-21T13:22:42.4415312Z     'Authorization': 'REDACTED'
+2025-11-21T13:22:42.4415334Z A body is sent with the request
+2025-11-21T13:22:42.664937Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
+2025-11-21T13:22:42.6649719Z Response headers:
+2025-11-21T13:22:42.6649755Z     'Date': 'Fri, 21 Nov 2025 13:22:42 GMT'
+2025-11-21T13:22:42.6649788Z     'Content-Type': 'application/json; charset=utf-8'
+2025-11-21T13:22:42.6649811Z     'Transfer-Encoding': 'chunked'
+2025-11-21T13:22:42.6649834Z     'Connection': 'keep-alive'
+2025-11-21T13:22:42.6649855Z     'MS-CV': 'REDACTED'
+2025-11-21T13:22:42.6649876Z     'X-Microsoft-Skype-Client': 'REDACTED'
+2025-11-21T13:22:42.6649902Z     'X-Ms-Client-Version': 'REDACTED'
+2025-11-21T13:22:42.6650025Z     'api-supported-versions': 'REDACTED'
+2025-11-21T13:22:42.6650053Z     'x-ms-client-request-id': '28df659c-c6dd-11f0-8db7-42e7a69d7ba0'
+2025-11-21T13:22:42.6650075Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
+2025-11-21T13:22:42.6650097Z     'x-azure-ref': 'REDACTED'
+2025-11-21T13:22:42.6650118Z     'Strict-Transport-Security': 'REDACTED'
+2025-11-21T13:22:42.665014Z     'X-Cache': 'REDACTED'
+2025-11-21T13:22:43.39936Z INFO:voicerag:✅ Call answered: 0d005780-1825-4e56-92d6-fb3bb7cf71b5
+2025-11-21T13:22:43.3993845Z INFO:voicerag:🎵 Starting audio streaming to: wss://bizapps-webapp.azurewebsites.net/realtime
+2025-11-21T13:22:43.3993887Z ERROR:voicerag:❌ Failed to start audio streaming: CallMediaOperations.start_media_streaming() got multiple values for argument 'start_media_streaming_request'
+2025-11-21T13:22:43.3993911Z ERROR:voicerag:   This means customer will hear silence!
+2025-11-21T13:22:43.399397Z ERROR:voicerag:Traceback (most recent call last):
+2025-11-21T13:22:43.3993995Z   File "/tmp/8de28fb50e1284b/acs_handler.py", line 106, in _handle_call
+2025-11-21T13:22:43.3994018Z     call_connection.start_media_streaming(
+2025-11-21T13:22:43.3994045Z   File "/tmp/8de28fb50e1284b/antenv/lib/python3.12/site-packages/azure/core/tracing/decorator.py", line 119, in wrapper_use_tracer
+2025-11-21T13:22:43.3994067Z     return func(*args, **kwargs)
+2025-11-21T13:22:43.3994088Z            ^^^^^^^^^^^^^^^^^^^^^
+2025-11-21T13:22:43.3994116Z   File "/tmp/8de28fb50e1284b/antenv/lib/python3.12/site-packages/azure/communication/callautomation/_call_connection_client.py", line 1118, in start_media_streaming
+2025-11-21T13:22:43.3994142Z     self._call_media_client.start_media_streaming(self._call_connection_id, start_media_streaming_request, **kwargs)
+2025-11-21T13:22:43.3994168Z   File "/tmp/8de28fb50e1284b/antenv/lib/python3.12/site-packages/azure/core/tracing/decorator.py", line 119, in wrapper_use_tracer
+2025-11-21T13:22:43.3994189Z     return func(*args, **kwargs)
+2025-11-21T13:22:43.3994236Z            ^^^^^^^^^^^^^^^^^^^^^
+2025-11-21T13:22:43.3994263Z TypeError: CallMediaOperations.start_media_streaming() got multiple values for argument 'start_media_streaming_request'
+2025-11-21T13:22:43.3994284Z
+2025-11-21T13:22:43.3999441Z INFO:voicerag:✅ Phone call activity created: 0e59a526-ddc6-f011-bbd3-7c1e527fc4af
+2025-11-21T13:22:44.1284395Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
+2025-11-21T13:22:44.1311586Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
+2025-11-21T13:23:53.2293657Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
