@@ -231,26 +231,3 @@ class ACSCallHandler:
         del active_calls[call_connection_id]
         if call_connection_id in call_transcripts:
             del call_transcripts[call_connection_id]
-```
-
----
-
-## **✅ What I Fixed:**
-
-1. **Fixed indentation** in `_handle_call` method (was missing proper indentation)
-2. **Added audio streaming** code after answering call
-3. **Added better error logging** for debugging
-4. **Proper try-except** around streaming code
-
----
-
-## **📝 Now Deploy:**
-
-1. **Replace your entire `acs_handler.py`** with the code above
-2. **Save the file**
-3. **Deploy** (same method as before)
-4. **Wait 2-3 minutes**
-5. **Check logs** for:
-```
-   🎵 Starting audio streaming to: wss://...
-   ✅ Audio streaming started!
