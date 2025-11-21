@@ -1,46 +1,52 @@
-025-11-21T16:49:48.920581Z INFO:voicerag:📩 Received data type: <class 'list'>
-2025-11-21T16:49:48.9311734Z INFO:voicerag:📋 Event type: Microsoft.Communication.IncomingCall
-2025-11-21T16:49:49.7373121Z INFO:voicerag:📞 Processing incoming call
-2025-11-21T16:49:49.7373388Z INFO:voicerag:📞 Caller: +13463755076
-2025-11-21T16:49:49.7373414Z INFO:voicerag:Getting D365 access token...
-2025-11-21T16:49:49.7373437Z INFO:voicerag:✅ D365 token obtained
-2025-11-21T16:49:49.7373457Z INFO:voicerag:No customer found for +13463755076
-2025-11-21T16:49:49.7377296Z ERROR:voicerag:⚠️ Media streaming classes not available: cannot import name 'MediaStreamingTransportType' from 'azure.communication.callautomation._models' (/tmp/8de2913af9750e5/antenv/lib/python3.12/site-packages/azure/communication/callautomation/_models.py)
-2025-11-21T16:49:49.7378014Z INFO:voicerag:   Call will be answered without streaming
-2025-11-21T16:49:49.7378069Z INFO:voicerag:📞 Answering call...
-2025-11-21T16:49:49.7378096Z INFO:azure.core.pipeline.policies.http_logging_policy:Request URL: 'https://bizapp-acs.unitedstates.communication.azure.com/calling/callConnections:answer?api-version=REDACTED'
-2025-11-21T16:49:49.7378115Z Request method: 'POST'
-2025-11-21T16:49:49.7378172Z Request headers:
-2025-11-21T16:49:49.7378192Z     'Content-Type': 'application/json'
-2025-11-21T16:49:49.7378211Z     'Content-Length': '9069'
-2025-11-21T16:49:49.737823Z     'Repeatability-First-Sent': 'REDACTED'
-2025-11-21T16:49:49.7378249Z     'Repeatability-Request-ID': 'REDACTED'
-2025-11-21T16:49:49.7378268Z     'Accept': 'application/json'
-2025-11-21T16:49:49.7378288Z     'x-ms-client-request-id': '17fd6e50-c6fa-11f0-8419-deedb78fa783'
-2025-11-21T16:49:49.7378464Z     'User-Agent': 'azsdk-python-communication-callautomation/1.5.0 Python/3.12.12 (Linux-6.6.104.2-1.azl3-x86_64-with-glibc2.31)'
-2025-11-21T16:49:49.7378495Z     'x-ms-date': 'REDACTED'
-2025-11-21T16:49:49.7378515Z     'x-ms-content-sha256': 'REDACTED'
-2025-11-21T16:49:49.7378535Z     'x-ms-return-client-request-id': 'true'
-2025-11-21T16:49:49.7378575Z     'Authorization': 'REDACTED'
-2025-11-21T16:49:49.7378595Z A body is sent with the request
-2025-11-21T16:49:50.2692325Z INFO:azure.core.pipeline.policies.http_logging_policy:Response status: 200
-2025-11-21T16:49:50.2692933Z Response headers:
-2025-11-21T16:49:50.2692971Z     'Date': 'Fri, 21 Nov 2025 16:49:50 GMT'
-2025-11-21T16:49:50.2692999Z     'Content-Type': 'application/json; charset=utf-8'
-2025-11-21T16:49:50.2693021Z     'Transfer-Encoding': 'chunked'
-2025-11-21T16:49:50.2693045Z     'Connection': 'keep-alive'
-2025-11-21T16:49:50.2693071Z     'MS-CV': 'REDACTED'
-2025-11-21T16:49:50.2693093Z     'X-Microsoft-Skype-Client': 'REDACTED'
-2025-11-21T16:49:50.2693114Z     'X-Ms-Client-Version': 'REDACTED'
-2025-11-21T16:49:50.2693231Z     'api-supported-versions': 'REDACTED'
-2025-11-21T16:49:50.269583Z     'x-ms-client-request-id': '17fd6e50-c6fa-11f0-8419-deedb78fa783'
-2025-11-21T16:49:50.2695885Z     'X-Microsoft-Skype-Chain-ID': 'REDACTED'
-2025-11-21T16:49:50.2695905Z     'x-azure-ref': 'REDACTED'
-2025-11-21T16:49:50.2695925Z     'Strict-Transport-Security': 'REDACTED'
-2025-11-21T16:49:50.2695945Z     'X-Cache': 'REDACTED'
-2025-11-21T16:49:50.2845536Z INFO:voicerag:✅ Call answered (no streaming): 23005c80-c7b9-49a5-9095-9031c3d0ffa7
-2025-11-21T16:49:51.1506391Z INFO:voicerag:✅ Phone call activity created: 643f9713-fac6-f011-bbd3-7c1e527fc4af
-2025-11-21T16:49:51.1518415Z INFO:voicerag:📨 Callback event: Microsoft.Communication.ParticipantsUpdated
-2025-11-21T16:49:51.1576886Z INFO:voicerag:✅ Phone call activity created: 643f9713-fac6-f011-bbd3-7c1e527fc4af
-2025-11-21T16:49:51.1586937Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallConnected
-2025-11-21T16:50:55.1289858Z INFO:voicerag:📨 Callback event: Microsoft.Communication.CallDisconnected
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>
+ *  History restored 
+
+Microsoft Windows [Version 10.0.26100.7171]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>
+ *  History restored 
+
+Microsoft Windows [Version 10.0.26100.7171]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>
+ *  History restored 
+
+(c) Microsoft Corporation. All rights reserved.
+(c) Microsoft Corporation. All rights reserved.
+
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>
+ *  History restored 
+
+Microsoft Windows [Version 10.0.26100.7171]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>
+ *  History restored 
+
+Microsoft Windows [Version 10.0.26100.7171]
+(c) Microsoft Corporation. All rights reserved.
+
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>pip install azure-communication-callautomation --pre --upgrade
+Defaulting to user installation because normal site-packages is not writeable
+Collecting azure-communication-callautomation
+  Downloading azure_communication_callautomation-1.6.0b1-py3-none-any.whl (152 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 152.7/152.7 kB 762.0 kB/s eta 0:00:00
+Collecting isodate>=0.6.1 (from azure-communication-callautomation)
+  Using cached isodate-0.7.2-py3-none-any.whl (22 kB)
+Collecting azure-core>=1.30.0 (from azure-communication-callautomation)
+  Using cached azure_core-1.36.0-py3-none-any.whl (213 kB)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\users\huzaifa.asad\appdata\roaming\python\python311\site-packages (from azure-communication-callautomation) (4.15.0)
+Requirement already satisfied: requests>=2.21.0 in c:\users\huzaifa.asad\appdata\roaming\python\python311\site-packages (from azure-core>=1.30.0->azure-communication-callautomation) (2.32.5)
+Requirement already satisfied: charset_normalizer<4,>=2 in c:\users\huzaifa.asad\appdata\roaming\python\python311\site-packages (from requests>=2.21.0->azure-core>=1.30.0->azure-communication-callautomation) (3.4.4)
+Requirement already satisfied: idna<4,>=2.5 in c:\users\huzaifa.asad\appdata\roaming\python\python311\site-packages (from requests>=2.21.0->azure-core>=1.30.0->azure-communication-callautomation) (3.11)
+Requirement already satisfied: urllib3<3,>=1.21.1 in c:\users\huzaifa.asad\appdata\roaming\python\python311\site-packages (from requests>=2.21.0->azure-core>=1.30.0->azure-communication-callautomation) (2.5.0)
+Requirement already satisfied: certifi>=2017.4.17 in c:\users\huzaifa.asad\appdata\roaming\python\python311\site-packages (from requests>=2.21.0->azure-core>=1.30.0->azure-communication-callautomation) (2025.10.5)
+Installing collected packages: isodate, azure-core, azure-communication-callautomation
+Successfully installed azure-communication-callautomation-1.6.0b1 azure-core-1.36.0 isodate-0.7.2
+
+[notice] A new release of pip is available: 23.1.2 -> 25.3
+[notice] To update, run: python.exe -m pip install --upgrade pip
+
+D:\One Drive\OneDrive - Systems Limited\Desktop\deployment-voicebot>
