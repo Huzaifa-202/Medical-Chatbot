@@ -90,23 +90,21 @@ class ACSCallHandler:
             if self.d365_client and caller_id != "Unknown":
                 contact = await self.d365_client.lookup_contact_by_phone(caller_id)
             
-            # ✅ CONFIGURE MEDIA STREAMING OPTIONS
-            media_streaming_options = None
+            # ✅ CONFIGURE MEDIA STREAMING (v1.6.0b1)
+            websocket_url = f"wss://{self.app_url.replace('https://', '').replace('http://', '')}/realtime"
+            
+            logger.info(f"🎵 Configuring audio streaming to: {websocket_url}")
+            
             try:
-                # WebSocket URL for audio streaming
-                websocket_url = f"wss://{self.app_url.replace('https://', '').replace('http://', '')}/realtime"
-                
-                logger.info(f"🎵 Configuring audio streaming to: {websocket_url}")
-                
-                # Create media streaming options
+                # Create media streaming options for v1.6.0b1
                 media_streaming_options = MediaStreamingOptions(
                     transport_url=websocket_url,
                     transport_type=MediaStreamingTransportType.WEBSOCKET,
                     content_type=MediaStreamingContentType.AUDIO,
                     audio_channel_type=MediaStreamingAudioChannelType.MIXED,
-                    start_media_streaming=True,  # ✅ Start immediately when call is answered
-                    enable_bidirectional=True,   # ✅ Allow bot to speak back
-                    audio_format=AudioFormat.PCM24_K_MONO  # ✅ 24kHz audio
+                    start_media_streaming=True,
+                    enable_bidirectional=True,
+                    audio_format=AudioFormat.PCM24_K_MONO
                 )
                 
                 logger.info("✅ Media streaming options configured")
@@ -115,25 +113,25 @@ class ACSCallHandler:
                 logger.error(f"❌ Failed to configure streaming: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
-                logger.error(f"   ⚠️ Call will be answered without streaming!")
+                media_streaming_options = None
             
-            # ⚡ Answer the call WITH streaming options
+            # ⚡ Answer the call WITH streaming
             logger.info("📞 Answering call with media streaming...")
             
             answer_result = self.client.answer_call(
                 incoming_call_context=incoming_call_context,
                 callback_url=f"{self.app_url}/api/callbacks",
-                media_streaming=media_streaming_options  # ✅ Pass streaming options here
+                media_streaming=media_streaming_options
             )
             
             call_connection_id = answer_result.call_connection_id
             
             if media_streaming_options:
-                logger.info(f"✅ Call answered with streaming: {call_connection_id}")
+                logger.info(f"✅ Call answered WITH streaming: {call_connection_id}")
             else:
                 logger.info(f"✅ Call answered (no streaming): {call_connection_id}")
             
-            # Create D365 activity (async, non-blocking)
+            # Create D365 activity
             activity_id = None
             if self.d365_client:
                 try:
