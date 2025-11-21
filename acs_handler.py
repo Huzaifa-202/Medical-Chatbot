@@ -16,9 +16,36 @@ class ACSCallHandler:
         self.d365_client = d365_client
     
     async def handle_incoming_call(self, request: web.Request):
-        """Handle incoming call from ACS"""
+        """Handle incoming call from ACS AND Event Grid validation"""
         try:
             data = await request.json()
+            
+            # Handle Event Grid validation
+            if isinstance(data, list) and len(data) > 0:
+                event = data[0]
+                
+                # Event Grid subscription validation
+                if event.get("eventType") == "Microsoft.EventGrid.SubscriptionValidationEvent":
+                    validation_code = event["data"]["validationCode"]
+                    logger.info("📋 Event Grid validation request received")
+                    return web.json_response({"validationResponse": validation_code})
+                
+                # Handle incoming call event
+                if event.get("eventType") == "Microsoft.Communication.IncomingCall":
+                    event_data = event["data"]
+                    return await self._handle_call(event_data)
+            
+            # Direct call (non-Event Grid format)
+            else:
+                return await self._handle_call(data)
+                
+        except Exception as e:
+            logger.error(f"❌ Error handling request: {e}")
+            return web.Response(status=500, text=str(e))
+    
+    async def _handle_call(self, data):
+        """Process the actual incoming call"""
+        try:
             logger.info("📞 Incoming call received")
             
             incoming_call_context = data.get("incomingCallContext")
@@ -73,13 +100,24 @@ class ACSCallHandler:
         try:
             data = await request.json()
             
-            for event in data:
-                event_type = event.get("type")
+            # Handle Event Grid validation for callbacks too
+            if isinstance(data, list) and len(data) > 0:
+                event = data[0]
+                if event.get("eventType") == "Microsoft.EventGrid.SubscriptionValidationEvent":
+                    validation_code = event["data"]["validationCode"]
+                    logger.info("📋 Event Grid validation for callbacks")
+                    return web.json_response({"validationResponse": validation_code})
+            
+            # Handle regular callback events
+            events = data if isinstance(data, list) else [data]
+            
+            for event in events:
+                event_type = event.get("type") or event.get("eventType")
                 call_id = event.get("callConnectionId")
                 
                 logger.info(f"📨 Event: {event_type}")
                 
-                if event_type == "Microsoft.Communication.CallDisconnected":
+                if event_type and "CallDisconnected" in event_type:
                     await self.handle_call_end(call_id)
             
             return web.Response(status=200)
@@ -133,19 +171,19 @@ class ACSCallHandler:
         del active_calls[call_connection_id]
         if call_connection_id in call_transcripts:
             del call_transcripts[call_connection_id]
+```
 
+---
 
+## **Now:**
 
+1. **Save this file**
 
-(.venv) D:\One Drive\OneDrive - Systems Limited\Desktop\vb\aisearch-openai-rag-audio>python app/backend/app.py
-INFO:voicerag:Running in development mode, loading from .env file
-INFO:voicerag:✅ D365 integration enabled
-INFO:voicerag:Realtime voice choice set to shimmer
-INFO:voicerag:✅ ACS call handling enabled
-INFO:voicerag:   Incoming calls: https://bizapps-webapp.azurewebsites.net/api/incomingCall
-INFO:voicerag:   Callbacks: https://bizapps-webapp.azurewebsites.net/api/callbacks
-======== Running on http://localhost:8765 ========
-(Press CTRL+C to quit)
+2. **Deploy again** (same method you used before)
 
+3. **Wait for deployment** to complete (2-3 minutes)
 
-
+4. **Check logs** to make sure it says:
+```
+   ✅ D365 integration enabled
+   ✅ ACS call handling enabled
