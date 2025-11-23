@@ -1,14 +1,7 @@
 import logging
 from datetime import datetime
 from aiohttp import web
-from azure.communication.callautomation import (
-    CallAutomationClient,
-    MediaStreamingOptions,
-    MediaStreamingTransportType,
-    MediaStreamingContentType,
-    MediaStreamingAudioChannelType,
-    AudioFormat
-)
+from azure.communication.callautomation import CallAutomationClient
 
 logger = logging.getLogger("voicerag")
 
@@ -61,6 +54,48 @@ class ACSCallHandler:
             logger.error(traceback.format_exc())
             return web.Response(status=500, text=str(e))
     
+    def _create_media_streaming_config(self, websocket_url):
+        """Create media streaming configuration - version agnostic"""
+        try:
+            # Try beta version (1.6.0b1) imports
+            from azure.communication.callautomation import (
+                MediaStreamingOptions,
+                MediaStreamingTransportType,
+                MediaStreamingContentType,
+                MediaStreamingAudioChannelType,
+                AudioFormat
+            )
+            
+            logger.info("✅ Using v1.6.0b1 media streaming classes")
+            
+            return MediaStreamingOptions(
+                transport_url=websocket_url,
+                transport_type=MediaStreamingTransportType.WEBSOCKET,
+                content_type=MediaStreamingContentType.AUDIO,
+                audio_channel_type=MediaStreamingAudioChannelType.MIXED,
+                start_media_streaming=True,
+                enable_bidirectional=True,
+                audio_format=AudioFormat.PCM24_K_MONO
+            )
+        except (ImportError, AttributeError) as e:
+            logger.warning(f"⚠️ Beta version classes not available: {e}")
+            
+            # Try using dict for older versions
+            try:
+                logger.info("📦 Attempting dict-based media streaming config")
+                return {
+                    "transportUrl": websocket_url,
+                    "transportType": "websocket",
+                    "contentType": "audio",
+                    "audioChannelType": "mixed",
+                    "startMediaStreaming": True,
+                    "enableBidirectional": True,
+                    "audioFormat": "Pcm24KMono"
+                }
+            except Exception as dict_error:
+                logger.error(f"❌ Dict config also failed: {dict_error}")
+                return None
+    
     async def _handle_call(self, data):
         """Process incoming call - with audio streaming"""
         try:
@@ -90,46 +125,39 @@ class ACSCallHandler:
             if self.d365_client and caller_id != "Unknown":
                 contact = await self.d365_client.lookup_contact_by_phone(caller_id)
             
-            # ✅ CONFIGURE MEDIA STREAMING (v1.6.0b1)
+            # Configure media streaming
             websocket_url = f"wss://{self.app_url.replace('https://', '').replace('http://', '')}/realtime"
+            logger.info(f"🎵 Configuring streaming to: {websocket_url}")
             
-            logger.info(f"🎵 Configuring audio streaming to: {websocket_url}")
+            media_streaming_config = self._create_media_streaming_config(websocket_url)
+            
+            # Answer call
+            logger.info("📞 Answering call...")
             
             try:
-                # Create media streaming options for v1.6.0b1
-                media_streaming_options = MediaStreamingOptions(
-                    transport_url=websocket_url,
-                    transport_type=MediaStreamingTransportType.WEBSOCKET,
-                    content_type=MediaStreamingContentType.AUDIO,
-                    audio_channel_type=MediaStreamingAudioChannelType.MIXED,
-                    start_media_streaming=True,
-                    enable_bidirectional=True,
-                    audio_format=AudioFormat.PCM24_K_MONO
+                if media_streaming_config:
+                    logger.info("📞 Attempting to answer WITH streaming...")
+                    answer_result = self.client.answer_call(
+                        incoming_call_context=incoming_call_context,
+                        callback_url=f"{self.app_url}/api/callbacks",
+                        media_streaming=media_streaming_config
+                    )
+                    logger.info("✅ Call answered WITH streaming")
+                else:
+                    raise ValueError("No streaming config available")
+                    
+            except Exception as streaming_err:
+                logger.warning(f"⚠️ Streaming failed: {streaming_err}")
+                logger.info("📞 Falling back to answer WITHOUT streaming...")
+                
+                answer_result = self.client.answer_call(
+                    incoming_call_context=incoming_call_context,
+                    callback_url=f"{self.app_url}/api/callbacks"
                 )
-                
-                logger.info("✅ Media streaming options configured")
-                
-            except Exception as e:
-                logger.error(f"❌ Failed to configure streaming: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                media_streaming_options = None
-            
-            # ⚡ Answer the call WITH streaming
-            logger.info("📞 Answering call with media streaming...")
-            
-            answer_result = self.client.answer_call(
-                incoming_call_context=incoming_call_context,
-                callback_url=f"{self.app_url}/api/callbacks",
-                media_streaming=media_streaming_options
-            )
+                logger.warning("⚠️ Call answered WITHOUT streaming - silence expected")
             
             call_connection_id = answer_result.call_connection_id
-            
-            if media_streaming_options:
-                logger.info(f"✅ Call answered WITH streaming: {call_connection_id}")
-            else:
-                logger.info(f"✅ Call answered (no streaming): {call_connection_id}")
+            logger.info(f"✅ Call connection ID: {call_connection_id}")
             
             # Create D365 activity
             activity_id = None
